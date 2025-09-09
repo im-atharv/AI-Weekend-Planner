@@ -1,0 +1,58 @@
+# Node modules
+node_modules/
+
+# Build output directories
+build/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# VSCode settings
+.vscode/
+
+# MacOS system files
+.DS_Store
+
+# Windows system files
+Thumbs.db
+
+# React Native specific (if you're using React Native)
+*.xcworkspace
+*.expo/
+
+# npm package lock files (if you're using yarn, comment the next line)
+package-lock.json
+
+# Yarn lock files (if you're using npm, comment the next line)
+yarn.lock
+
+# MongoDB data (if you store your DB locally for dev purposes)
+*.db
+*.db-journal
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage directory (if using code coverage tools)
+coverage/
+
+# Debugger configuration
+.vscode/
+*.code-workspace
+
+# JetBrains IDE configuration (if you use WebStorm or IntelliJ)
+.idea/
+
+# Other build or temporary files
+*.tgz
+*.bak
+*.swp

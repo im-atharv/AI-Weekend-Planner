@@ -1,0 +1,14 @@
+{
+    "name": "curate-ai-project",
+    "private": true,
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "dev": "npm run dev --workspace=packages/frontend",
+        "dev:backend": "npm run dev --workspace=packages/backend",
+        "build:frontend": "npm run build --workspace=packages/frontend",
+        "build:backend": "npm run build --workspace=packages/backend",
+        "start:backend": "npm run start --workspace=packages/backend"
+    }
+}
