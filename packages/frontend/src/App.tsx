@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Header } from "./components/common/Header";
 import { Footer } from "./components/common/Footer";
@@ -26,9 +26,9 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const showToast = (message: string, type: ToastMessage['type']) => {
+  const showToast = useCallback((message: string, type: ToastMessage['type']) => {
     setToast({ message, type });
-  };
+  }, []);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);

@@ -6,7 +6,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const responseSchema: any = {
     type: Type.OBJECT,
     properties: {
-        title: { type: Type.STRING, description: "A catchy, short, and descriptive title for the entire weekend plan. For example, 'Gurram Getaway: Culture, Cuisine & Nightlife'." },
+        title: { type: Type.STRING, description: "A catchy, short, and descriptive title for the entire weekend plan. For example, 'Varanasi Voyage: A Spiritual & Culinary Journey'." },
         totalEstimatedCost: { type: Type.STRING, description: "The total estimated cost for the entire weekend plan. This should be a single string, e.g., 'Approx. ₹4,500'." },
         itinerary: {
             type: Type.ARRAY,
@@ -15,20 +15,20 @@ const responseSchema: any = {
                 type: Type.OBJECT,
                 properties: {
                     day: { type: Type.STRING, description: "The day of the week and date. MUST be in the format 'Friday Evening, July 26, 2024' or 'Saturday, July 27, 2024'." },
-                    theme: { type: Type.STRING, description: "A short theme for the day's activities (e.g., 'Vibrant Nightlife & Fine Dining')." },
+                    theme: { type: Type.STRING, description: "A short theme for the day's activities (e.g., 'Spiritual Sunrise & Silk Weaving')." },
                     activities: {
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
                             properties: {
                                 time: { type: Type.STRING, description: "Suggested time for the activity (e.g., '8:00 PM', '11:00 AM - 1:00 PM'). This field is mandatory." },
-                                title: { type: Type.STRING, description: "The name of the activity or place (e.g., 'Dinner at The Corner Bistro')." },
-                                description: { type: Type.STRING, description: "A brief, appealing description of the activity." },
+                                title: { type: Type.STRING, description: "The name of the activity or place (e.g., 'Evening Ganga Aarti at Dashashwamedh Ghat')." },
+                                description: { type: Type.STRING, description: "A brief, appealing description of the activity, including a pro-tip." },
                                 location: {
                                     type: Type.OBJECT,
                                     description: "The location of the activity. Must contain at least an address.",
                                     properties: {
-                                        name: { type: Type.STRING, description: "The optional name of the place (e.g., 'Spectra Restaurant')." },
+                                        name: { type: Type.STRING, description: "The optional name of the place (e.g., 'Kashi Vishwanath Temple')." },
                                         address: { type: Type.STRING, description: "The full, specific address of the location." }
                                     },
                                     required: ['address']
@@ -53,9 +53,9 @@ const responseSchema: any = {
                                     type: Type.OBJECT,
                                     description: "Details on the travel from the previous location to this activity. For the first activity of the day, this is from the user's home.",
                                     properties: {
-                                        mode: { type: Type.STRING, description: "Recommended mode of transport (e.g., 'Ride-Sharing', 'Metro', 'Walk')." },
+                                        mode: { type: Type.STRING, description: "Recommended mode of transport (e.g., 'Ride-Sharing', 'Auto-Rickshaw', 'Walk')." },
                                         duration: { type: Type.STRING, description: "Estimated travel time (e.g., 'Approx. 15 mins')." },
-                                        distance: { type: Type.STRING, description: "Estimated travel distance (e.g., 'Approx. 5 km').", nullable: true },
+                                        distance: { type: Type.STRING, description: "Estimated travel distance (e.g., 'Approx. 2 km').", nullable: true },
                                         from: { type: Type.STRING, description: "The starting point of the travel leg.", nullable: true },
                                     },
                                     required: ['mode', 'duration']
@@ -77,18 +77,14 @@ const cleanJsonText = (text: string) => {
         console.error("Received invalid text input for JSON cleaning:", text);
         throw new Error("Received no response from the AI architect.");
     }
-
     const jsonStart = text.indexOf('{');
     const jsonEnd = text.lastIndexOf('}');
-
     if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) {
         console.error("Failed to find a valid JSON object in the text.", { text });
         throw new Error("Received malformed JSON from the AI architect.");
     }
-
     let jsonString = text.substring(jsonStart, jsonEnd + 1);
     jsonString = jsonString.replace(/[\n\r]/g, ' ');
-
     try {
         return JSON.parse(jsonString);
     } catch (e) {
@@ -102,11 +98,9 @@ const removeCitations = (obj: any): any => {
     if (obj === null || typeof obj !== 'object') {
         return obj;
     }
-
     if (Array.isArray(obj)) {
         return obj.map(item => removeCitations(item));
     }
-
     const newObj: { [key: string]: any } = {};
     for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -121,16 +115,20 @@ const removeCitations = (obj: any): any => {
     return newObj;
 };
 
+const getSystemInstruction = (preferences: Preferences) => {
+    // Dynamically extract the city name from the user's address for hyper-local focus
+    const city = preferences.location.address.split(',').slice(-2, -1)[0]?.trim() || 'the user\'s specified city';
 
-const getSystemInstruction = (preferences: Preferences) => `
-You are "Curate"—a world-class AI concierge, master route planner, and local cultural expert for Delhi–NCR. Your mission is to craft hyper-personalized, narratively cohesive, and logistically flawless weekend itineraries that feel like they were prepared by a seasoned local expert.
+    return `
+You are "Curate"—a world-class AI concierge, master route planner, and expert on the user's chosen city. Your mission is to craft hyper-personalized, narratively cohesive, and logistically flawless weekend itineraries.
 
 ========================
-CORE DIRECTIVES (NON-NEGOTIABLE)
+PRIMARY DIRECTIVES (NON-NEGOTIABLE)
 ========================
-1.  **JSON ONLY & SCHEMA PERFECT:** Your output MUST be a single, valid JSON object that strictly conforms to the provided schema. No prose, markdown, or any deviation is permitted.
-2.  **NO CITATIONS:** All text fields must be clean. Never include citation markers like [1], [12, 23], or any footnotes.
-3.  **HARD CONSTRAINTS:** All of the following user preferences must be strictly satisfied:
+1.  **LOCATION IS PARAMOUNT:** The single most critical rule is to generate an itinerary **ONLY for ${city}**. All activities, searches, and suggestions MUST be within this city and respect the travel radius. **DO NOT, under any circumstances, suggest activities in any other city.**
+2.  **JSON ONLY & SCHEMA PERFECT:** Your output MUST be a single, valid JSON object that strictly conforms to the provided schema. No prose, markdown, or any deviation is permitted.
+3.  **NO CITATIONS:** All text fields must be clean. Never include citation markers like [1], [12, 23], or any footnotes.
+4.  **HARD CONSTRAINTS:** All of the following user preferences must be strictly satisfied:
     -   **Dates:** ${preferences.dates.start} to ${preferences.dates.end}
     -   **Budget (per person):** ${preferences.budget}. The final \`totalEstimatedCost\` must be comfortably within this range.
     -   **Vibe:** ${preferences.vibe}; **Group:** ${preferences.group}
@@ -142,39 +140,35 @@ CORE DIRECTIVES (NON-NEGOTIABLE)
 ========================
 ITINERARY MODIFICATION REQUESTS
 ========================
-- If the user asks to replace a specific activity (e.g., "replace dinner at The Corner Bistro with something more casual"), your task is to modify only that single activity.
+- If the user asks to replace a specific activity, your task is to modify **only that single activity** within ${city}.
 - Do NOT change any other activities in the plan.
-- You MUST, however, recalculate the \`travelInfo\` for the new activity and the one immediately following it to ensure logistical coherence.
-- You MUST also update the \`totalEstimatedCost\` to reflect the change.
+- You MUST recalculate the \`travelInfo\` for the new activity and the one immediately following it to ensure logistical coherence.
+- You MUST update the \`totalEstimatedCost\` to reflect the change.
 - Regenerate the entire, valid JSON object with these precise modifications.
 
 ========================
 ITINERARY CRAFTING PHILOSOPHY
 ========================
 
-**1. NARRATIVE & THEME (CRITICAL):**
-   - Each day's \`theme\` is not just a title; it's a narrative thread. The activities for that day must logically and thematically connect to it, creating a cohesive story for the day (e.g., a "Culinary Heritage Trail" theme would connect a food walk, a historical restaurant, and a spice market).
+**1. NARRATIVE & THEME:**
+   - Each day's \`theme\` is a narrative thread. Activities must connect to it, creating a cohesive story for the day (e.g., for Varanasi, a "Spiritual Sunrise & Silk Weaving" theme).
 
 **2. HYPER-PERSONALIZATION & DETAIL:**
-   - **Go Beyond the Obvious:** For each activity, provide a "Pro-Tip" or a "Why you'll love it" hook within the description to offer unique value.
-   - **Vibe-Driven Details:** Tailor the descriptions to the user's \`vibe\`.
-     - *If "Foodie":* Mention a must-try dish (e.g., "...Pro-tip: Don't miss their signature Galouti Kebab.").
-     - *If "Cultural" or "History":* Mention a specific artist, exhibit, or architectural detail.
-     - *If "Adventurous":* Highlight the key thrill or challenge.
+   - For each activity, provide a "Pro-Tip" or a "Why you'll love it" hook within the description to offer unique value.
+   - **Vibe-Driven Details:** Tailor descriptions to the user's \`vibe\`. A "Foodie" in Varanasi should be told about a specific must-try street food like 'Kachori Sabzi'.
    - **Descriptions:** Aim for evocative and concise descriptions (around 30-40 words).
 
-**3. SPECIAL EVENT DISCOVERY (MANDATORY):**
-   - For **each day** (Fri, Sat, Sun), you **MUST** find **at least one** real, time-sensitive **Special Event**. Finding a second one is encouraged if it fits perfectly.
-   - Use Google Search to find real events (concerts, workshops, festivals, stand-up comedy, exhibitions) matching the user’s interests and dates.
-   - For these events, set \`isSpecialEvent\` to \`true\` and \`category\` to "Special Event", and provide precise venue and address details.
+**3. SPECIAL EVENT DISCOVERY:**
+   - For **each day**, find **at least one** real, time-sensitive **Special Event** in ${city} matching the user’s interests and dates. Use targeted searches like "live classical music in ${city} on ${preferences.dates.start}".
+   - For these events, set \`isSpecialEvent\` to \`true\` and \`category\` to "Special Event".
 
-**4. LOGISTICS & REALISM (TRAFFIC-AWARE):**
-   - **Geographic Clustering:** Activities must be grouped logically to minimize travel time and avoid backtracking.
-   - **Time-Aware Commute:** Commute times in \`travelInfo\` MUST reflect the specific time of day and likely traffic. A 6 PM Friday commute from Gurugram to Delhi will be slow; a 10 PM commute will be faster.
-   - **Buffer Time:** The schedule should implicitly include buffer time between activities, respecting the user's selected \`pace\`. A 'Leisurely' pace should have significant gaps.
+**4. LOGISTICS & REALISM:**
+   - **Geographic Clustering:** Group activities logically to minimize travel.
+   - **Time-Aware Commute:** Commute times in \`travelInfo\` MUST reflect the specific time of day and likely traffic in ${city}.
+   - **Buffer Time:** The schedule should implicitly include buffer time, respecting the user's selected \`pace\`.
 
-**5. COSTING:**
-   - Each \`estimatedCost\` must be realistic. For restaurants or activities with variable costs, provide a specific, helpful estimate (e.g., "Approx. ₹2000 for two, excluding drinks").
+**5. FINAL CHECK (MANDATORY INTERNAL STEP):**
+   - Before outputting the JSON, you MUST internally review every activity. Confirm that its location is **unquestionably in ${city}** and within the ${preferences.distance} radius from the user's start location. If not, you must replace it.
 
 ========================
 STRICT SCHEMA (DO NOT DEVIATE)
@@ -182,6 +176,8 @@ STRICT SCHEMA (DO NOT DEVIATE)
 Your output must follow this schema exactly:
 ${JSON.stringify(responseSchema, null, 2)}
 `;
+};
+
 
 /**
  * Creates a new chat session from scratch for a new plan.

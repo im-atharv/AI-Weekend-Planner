@@ -57,7 +57,6 @@ export const ChatPage: React.FC<ChatPageProps> = ({
           navigate("/newplan");
           return;
         }
-
         setCurrentPlan(plan);
         chatRef.current = initializeChatFromPlan(plan, location.state?.history);
       } catch (err) {
@@ -69,12 +68,12 @@ export const ChatPage: React.FC<ChatPageProps> = ({
       }
     };
 
-    if (!user && !location.state?.plan) {
-      navigate("/newplan");
-    } else {
+    if (planId || location.state?.plan) {
       loadPlan();
+    } else {
+      navigate("/newplan");
     }
-  }, [planId, location.state, navigate, showToast, user]);
+  }, [planId, location.state, navigate, showToast]);
 
   const handleSendMessage = async (message: string) => {
     if (!chatRef.current || !currentPlan) return;
@@ -90,18 +89,15 @@ export const ChatPage: React.FC<ChatPageProps> = ({
         currentPlan.preferences
       );
 
-      // Create a stable copy of the current state
       const newPlanState = JSON.parse(
         JSON.stringify(currentPlan)
       ) as Itinerary;
 
-      // Safely merge top-level properties from the AI's response
       newPlanState.title = updatedItinerary.title || newPlanState.title;
       newPlanState.totalEstimatedCost =
         updatedItinerary.totalEstimatedCost || newPlanState.totalEstimatedCost;
       newPlanState.sources = updatedItinerary.sources || newPlanState.sources;
 
-      // Safely merge the itinerary day by day to preserve day/theme keys
       if (
         updatedItinerary.itinerary &&
         Array.isArray(updatedItinerary.itinerary)
@@ -109,7 +105,6 @@ export const ChatPage: React.FC<ChatPageProps> = ({
         newPlanState.itinerary = newPlanState.itinerary.map(
           (oldDayPlan: DayPlan, index: number) => {
             const newDayPlan = updatedItinerary.itinerary[index];
-            // If the new plan data for this day exists, merge it over the old one
             return newDayPlan ? { ...oldDayPlan, ...newDayPlan } : oldDayPlan;
           }
         );
@@ -122,7 +117,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred.";
       setError(`Failed to update itinerary: ${errorMessage}`);
-      setUserMessages((prev) => prev.slice(0, -1)); // Restore user message on failure
+      setUserMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
     }
