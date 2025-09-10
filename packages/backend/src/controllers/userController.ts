@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import User from "../models/User.js";
+import bcrypt from "bcryptjs";
 import { verifyGoogleToken } from "../services/authService.js";
 
 export const googleLogin = async (
@@ -38,23 +39,35 @@ export const register = async (
   next: NextFunction
 ) => {
   try {
-    const { name, email } = req.body;
-    if (!name || !email) {
-      return res.status(400).json({ error: "Name and email are required" });
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Name, email and password are required" });
+    }
+    const emailRegex = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+    if (!emailRegex.test(String(email))) {
+      return res.status(400).json({ error: "Please provide a valid email" });
+    }
+    if (String(password).length < 6) {
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 6 characters" });
     }
 
-    const existingUser = await User.findOne({
-      email: email.toLowerCase().trim(),
-    });
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res
         .status(400)
         .json({ error: "A user with that email already exists" });
     }
 
-    const user = new User({ name, email });
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = new User({ name, email: normalizedEmail, passwordHash });
     await user.save();
-    return res.status(201).json(user);
+    // Do not expose passwordHash
+    return res.status(201).json({ name: user.name, email: user.email });
   } catch (err) {
     return next(err);
   }
@@ -66,18 +79,38 @@ export const login = async (
   next: NextFunction
 ) => {
   try {
-    const { email, name } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Email and password are required" });
     }
-    const normalizedEmail = email.toLowerCase().trim();
-    let user = await User.findOne({ email: normalizedEmail });
+    const emailRegex = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+    if (!emailRegex.test(String(email))) {
+      return res.status(400).json({ error: "Please provide a valid email" });
+    }
+    const normalizedEmail = String(email).toLowerCase().trim();
+    // Need passwordHash for comparison
+    const user = await (User as any)
+      .findOne({ email: normalizedEmail })
+      .select("+passwordHash name email");
+
     if (!user) {
-      const derivedName = name || normalizedEmail.split("@")[0];
-      user = new User({ name: derivedName, email: normalizedEmail });
-      await user.save();
+      return res.status(400).json({ error: "Invalid email or password" });
     }
-    return res.json(user);
+
+    if (!user.passwordHash) {
+      return res
+        .status(400)
+        .json({ error: "This account uses Google Sign-In. Use Google to login." });
+    }
+
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) {
+      return res.status(400).json({ error: "Invalid email or password" });
+    }
+
+    return res.json({ name: user.name, email: user.email });
   } catch (err) {
     return next(err);
   }

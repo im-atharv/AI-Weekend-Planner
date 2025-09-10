@@ -11,10 +11,9 @@ import { LocationMapModal } from "./LocationMapModal";
 import {
   getAddressFromCoordinates,
   getAddressSuggestions,
+  getCoordinatesFromPlaceId,
 } from "@/services/locationService";
 import { useDebounce } from "@/hooks/useDebounce";
-
-declare const L: any;
 
 interface PreferenceFormProps {
   onSubmit: (preferences: Preferences) => void;
@@ -55,7 +54,7 @@ const transportationOptions: OptionType[] = [
     { id: 'own-vehicle', label: 'Own Vehicle' }, { id: 'ride-sharing', label: 'Ride-Sharing' }, { id: 'public-transport', label: 'Public Transport' }, { id: 'walking', label: 'Walking' },
 ];
 
-const isLocationServiceConfigured = !!process.env.GEOAPIFY_API_KEY;
+const isLocationServiceConfigured = !!import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 type FormState = Omit<Preferences, "location" | "dates">;
 type FormAction =
@@ -189,7 +188,7 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
   const [addressInput, setAddressInput] = useState("");
   const debouncedAddress = useDebounce(addressInput, 500);
   const [suggestions, setSuggestions] = useState<
-    { description: string; latitude: number; longitude: number }[]
+    { description: string; place_id: string }[]
   >([]);
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
   const suggestionsContainerRef = useRef<HTMLDivElement>(null);
@@ -198,6 +197,29 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
   );
   const [isCalendarOpen, setCalendarOpen] = useState(false);
   const mapPreviewRef = useRef<any>(null);
+  const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
+
+  useEffect(() => {
+    // This function tries to initialize the autocomplete service.
+    const initializeService = () => {
+      if (window.google && window.google.maps && window.google.maps.places && !autocompleteService.current) {
+        autocompleteService.current = new window.google.maps.places.AutocompleteService();
+        return true; // Indicates success
+      }
+      return false; // Indicates failure
+    };
+
+    // Try to initialize immediately. If it fails, set up an interval to keep trying.
+    if (!initializeService()) {
+      const intervalId = setInterval(() => {
+        if (initializeService()) {
+          clearInterval(intervalId); // Stop checking once successful
+        }
+      }, 100); // Check every 100ms
+
+      return () => clearInterval(intervalId); // Cleanup on unmount
+    }
+  }, []);
 
   const handleSetLocation = (lat: number, lon: number, addr: string) => {
     setLocation({ latitude: lat, longitude: lon, address: addr });
@@ -205,30 +227,27 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
   };
 
   useEffect(() => {
-    if (location && document.getElementById("map-preview")) {
-      if (mapPreviewRef.current) mapPreviewRef.current.remove();
+    if (location && document.getElementById("map-preview") && window.google) {
+      if (mapPreviewRef.current) {
+        document.getElementById("map-preview")!.innerHTML = "";
+      }
 
-      const map = L.map("map-preview", {
-        zoomControl: false,
-        scrollWheelZoom: false,
-        dragging: false,
-        doubleClickZoom: false,
-        touchZoom: false,
-      }).setView([location.latitude, location.longitude], 13);
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-      }).addTo(map);
-
-      L.marker([location.latitude, location.longitude]).addTo(map);
+      const mapOptions = {
+        center: { lat: location.latitude, lng: location.longitude },
+        zoom: 13,
+        disableDefaultUI: true,
+        gestureHandling: "none",
+      };
+      const map = new window.google.maps.Map(
+        document.getElementById("map-preview")!,
+        mapOptions
+      );
+      new window.google.maps.Marker({
+        position: { lat: location.latitude, lng: location.longitude },
+        map,
+      });
       mapPreviewRef.current = map;
     }
-    return () => {
-      if (mapPreviewRef.current) {
-        mapPreviewRef.current.remove();
-        mapPreviewRef.current = null;
-      }
-    };
   }, [location, locationStatus]);
 
   const handleDetectLocation = () => {
@@ -272,11 +291,11 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
   };
 
   useEffect(() => {
-    if (debouncedAddress && debouncedAddress.length > 3) {
+    if (debouncedAddress && debouncedAddress.length > 3 && autocompleteService.current) {
       const fetchSuggestions = async () => {
         setIsSuggestionsLoading(true);
         try {
-          const results = await getAddressSuggestions(debouncedAddress);
+          const results = await getAddressSuggestions(debouncedAddress, autocompleteService.current!);
           setSuggestions(results);
         } catch (error) {
           console.error("Failed to fetch address suggestions", error);
@@ -306,15 +325,20 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
     };
   }, []);
 
-  const handleSuggestionClick = (suggestion: {
+  const handleSuggestionClick = async (suggestion: {
     description: string;
-    latitude: number;
-    longitude: number;
+    place_id: string;
   }) => {
-    const { description: address, latitude, longitude } = suggestion;
+    const { description: address, place_id } = suggestion;
     setAddressInput(address);
     setSuggestions([]);
-    handleSetLocation(latitude, longitude, address);
+    try {
+      const coords = await getCoordinatesFromPlaceId(place_id);
+      handleSetLocation(coords.lat, coords.lng, address);
+    } catch (error) {
+      setLocationStatus("error");
+      setLocationError("Could not get coordinates for the selected address.");
+    }
   };
 
   const handleDateSelect = (date: Date) => {
@@ -399,9 +423,9 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
                   Location Service Not Configured
                 </p>
                 <p className="text-slate-400 text-sm mt-1">
-                  A Geoapify API key is required. Set{" "}
+                  A Google Maps API key is required. Set{" "}
                   <code className="bg-slate-900 px-1 py-0.5 rounded">
-                    GEOAPIFY_API_KEY
+                    VITE_GOOGLE_MAPS_API_KEY
                   </code>
                   .
                 </p>
@@ -447,7 +471,7 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
                     <ul className="absolute z-20 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">
                       {suggestions.map((s, index) => (
                         <li
-                          key={`${s.description}-${index}`}
+                          key={`${s.place_id}-${index}`}
                           onClick={() => handleSuggestionClick(s)}
                           className="px-3 py-2 cursor-pointer hover:bg-sky-600 text-sm"
                         >
@@ -473,7 +497,6 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
                     <div
                       id="map-preview"
                       className="h-24 w-full rounded-lg my-2 border border-slate-600 bg-slate-700"
-                      style={{ filter: "invert(1) hue-rotate(180deg)" }}
                     ></div>
                     <button
                       type="button"

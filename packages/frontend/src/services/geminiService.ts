@@ -35,7 +35,7 @@ const responseSchema: any = {
                                 },
                                 category: {
                                     type: Type.STRING,
-                                    enum: ['Dining', 'Entertainment', 'Relaxation', 'Activity', 'Nightlife', 'Shopping', 'Culture', 'History & Heritage', 'Nature & Parks', 'Special Event', 'Outdoor Activities', 'Travel'],
+                                    enum: ['Dining', 'Entertainment', 'Relaxation', 'Activity', 'Nightlife', 'Shopping', 'Culture', 'History & Heritage', 'Nature & Parks', 'Special Event', 'Outdoor Activities', 'Travel', 'Art & Culture', 'Live Music'], // <-- ADD THESE CATEGORIES
                                     description: "The category of the activity. Use 'Special Event' for time-sensitive events you discover."
                                 },
                                 estimatedCost: { type: Type.STRING, description: "An estimated cost for this specific activity (e.g., 'Approx. ₹1200', 'Free'). This field is mandatory." },

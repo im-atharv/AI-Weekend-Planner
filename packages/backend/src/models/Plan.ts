@@ -24,7 +24,9 @@ const ActivitySchema = new Schema({
       'Special Event',
       'Outdoor Activities',
       'Travel',
-      'Spa & Wellness', // <-- ADD THIS CATEGORY
+      'Spa & Wellness',
+      'Art & Culture',
+      'Live Music',
     ],
     required: true,
   },

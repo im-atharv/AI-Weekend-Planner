@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { SavedPlansView } from "@/components/itinerary/SavedPlansView";
 import { deletePlan, getSavedPlans } from "@/api";
 import type { User, SavedPlan } from "shared/types";
-import { Loader } from "@/components/common/Loader";
 
 interface PlansPageProps {
   user: User | null;
@@ -12,7 +11,8 @@ interface PlansPageProps {
 
 export const PlansPage: React.FC<PlansPageProps> = ({ user, onLoginRequest }) => {
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // The initial state now correctly depends on whether a user is present.
+  const [isLoading, setIsLoading] = useState(!!user);
   const navigate = useNavigate();
 
   const loadPlans = useCallback(async (email: string) => {
@@ -31,6 +31,7 @@ export const PlansPage: React.FC<PlansPageProps> = ({ user, onLoginRequest }) =>
     if (user) {
       loadPlans(user.email);
     } else {
+      // This ensures that if the user logs out, the loader is hidden.
       setIsLoading(false);
     }
   }, [user, loadPlans]);
@@ -49,10 +50,6 @@ export const PlansPage: React.FC<PlansPageProps> = ({ user, onLoginRequest }) =>
   const handleLoadPlan = (plan: SavedPlan) => {
     navigate(`/chat/${plan._id}`);
   };
-  
-  if (isLoading) {
-    return <Loader progress={50} />;
-  }
 
   if (!user) {
     return (
@@ -62,6 +59,24 @@ export const PlansPage: React.FC<PlansPageProps> = ({ user, onLoginRequest }) =>
             <button onClick={onLoginRequest} className="bg-sky-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-sky-700">
                 Login
             </button>
+      </div>
+    );
+  }
+
+  // Lightweight skeleton to avoid "No Saved Plans" flash while loading
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-4xl animate-fade-in">
+        <div className="h-9 w-72 bg-slate-700/60 rounded mb-8 animate-pulse" />
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-slate-800 p-4 rounded-lg border border-slate-700">
+              <div className="h-5 w-64 bg-slate-700/60 rounded mb-3 animate-pulse" />
+              <div className="h-3 w-80 bg-slate-700/50 rounded mb-2 animate-pulse" />
+              <div className="h-3 w-48 bg-slate-700/40 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

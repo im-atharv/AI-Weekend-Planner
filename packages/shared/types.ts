@@ -38,7 +38,9 @@ export interface Activity {
     | "Special Event"
     | "Outdoor Activities"
     | "Travel"
-    | "Spa & Wellness"; // <-- ADD THIS CATEGORY
+    | "Spa & Wellness"
+    | "Art & Culture"
+    | "Live Music"; 
     bookingPartner?: "Zomato" | "BookMyShow" | "Internal";
     travelInfo?: {
         mode: string;

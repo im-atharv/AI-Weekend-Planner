@@ -5,7 +5,8 @@ const API_BASE_URL = "/api";
 const handleResponse = async (response: Response) => {
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: "An unknown error occurred" }));
-        throw new Error(errorData.message || "Something went wrong with the request");
+        const msg = errorData.message || errorData.error || errorData.msg || "Something went wrong with the request";
+        throw new Error(msg);
     }
     if (response.status === 204) {
         return;
@@ -48,5 +49,21 @@ export const googleLogin = (id_token: string): Promise<User> => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id_token }),
+    }).then(handleResponse);
+};
+
+export const emailRegister = (name: string, email: string, password: string): Promise<User> => {
+    return fetch(`${API_BASE_URL}/users/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+    }).then(handleResponse);
+};
+
+export const emailLogin = (email: string, password: string): Promise<User> => {
+    return fetch(`${API_BASE_URL}/users/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
     }).then(handleResponse);
 };

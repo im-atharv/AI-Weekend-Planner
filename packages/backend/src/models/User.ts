@@ -1,7 +1,12 @@
 import { Schema, model } from "mongoose";
-import { User } from "../../../shared/types";
+import type { User as SharedUser } from "../../../shared/types";
 
-const UserSchema = new Schema<User>(
+// Extend the shared User type for persistence fields
+interface UserDocument extends SharedUser {
+  passwordHash?: string;
+}
+
+const UserSchema = new Schema<UserDocument>(
   {
     name: {
       type: String,
@@ -14,10 +19,14 @@ const UserSchema = new Schema<User>(
       lowercase: true,
       trim: true,
     },
+    passwordHash: {
+      type: String,
+      select: false,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-export default model<User>("User", UserSchema);
+export default model<UserDocument>("User", UserSchema);

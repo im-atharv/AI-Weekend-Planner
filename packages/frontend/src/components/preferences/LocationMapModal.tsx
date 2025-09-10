@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 
-declare const L: any;
-
 interface LocationMapModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -15,44 +13,36 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
   location,
   onSave,
 }) => {
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<google.maps.Map | null>(null);
+  const markerInstance = useRef<google.maps.Marker | null>(null);
   const [currentPos, setCurrentPos] = useState({
     lat: location.latitude,
     lng: location.longitude,
   });
 
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        if (document.getElementById("map") && !mapRef.current) {
-          const map = L.map("map").setView(
-            [location.latitude, location.longitude],
-            14
-          );
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution:
-              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          }).addTo(map);
+    if (isOpen && mapRef.current && !mapInstance.current) {
+      const mapOptions = {
+        center: { lat: location.latitude, lng: location.longitude },
+        zoom: 14,
+        disableDefaultUI: true,
+      };
+      const map = new window.google.maps.Map(mapRef.current, mapOptions);
+      const marker = new window.google.maps.Marker({
+        position: { lat: location.latitude, lng: location.longitude },
+        map,
+        draggable: true,
+      });
 
-          const marker = L.marker([location.latitude, location.longitude], {
-            draggable: true,
-          }).addTo(map);
-          marker.on("dragend", (event: any) => {
-            const newPos = event.target.getLatLng();
-            setCurrentPos({ lat: newPos.lat, lng: newPos.lng });
-          });
-
-          mapRef.current = map;
-          markerRef.current = marker;
-        } else if (mapRef.current) {
-          mapRef.current.setView([location.latitude, location.longitude], 14);
-          markerRef.current.setLatLng([location.latitude, location.longitude]);
+      marker.addListener("dragend", (event: google.maps.MapMouseEvent) => {
+        if (event.latLng) {
+          setCurrentPos({ lat: event.latLng.lat(), lng: event.latLng.lng() });
         }
-      }, 100);
-    } else if (mapRef.current) {
-      mapRef.current.remove();
-      mapRef.current = null;
+      });
+
+      mapInstance.current = map;
+      markerInstance.current = marker;
     }
   }, [isOpen, location]);
 
@@ -83,10 +73,10 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
         </div>
         <div
           id="map"
+          ref={mapRef}
           style={{
             height: "400px",
             width: "100%",
-            filter: "invert(1) hue-rotate(180deg)",
           }}
         ></div>
         <div className="p-4 bg-slate-800/50 border-t border-slate-700 flex justify-end gap-3">
