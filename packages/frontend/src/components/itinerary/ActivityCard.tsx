@@ -7,10 +7,12 @@ import {
   TicketIcon,
   SparklesIcon,
   RupeeIcon,
+  RefreshIcon,
 } from "@/assets/icons";
 
 interface ActivityCardProps {
   activity: Activity;
+  onSuggestAlternative: () => void;
 }
 
 const categoryStyles: { [key: string]: { icon: React.ReactElement, classes: string } } = {
@@ -26,11 +28,14 @@ const categoryStyles: { [key: string]: { icon: React.ReactElement, classes: stri
     'Special Event': { icon: <SparklesIcon className="w-4 h-4" />, classes: 'bg-rose-500/10 text-rose-400 border border-rose-500/20' },
     'Outdoor Activities': { icon: <TagIcon className="w-4 h-4" />, classes: 'bg-teal-500/10 text-teal-400 border border-teal-500/20' },
     'Travel': { icon: <TagIcon className="w-4 h-4" />, classes: 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' },
+    'Art & Culture': { icon: <TagIcon className="w-4 h-4" />, classes: 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' },
+    'Live Music': { icon: <TagIcon className="w-4 h-4" />, classes: 'bg-pink-500/10 text-pink-400 border border-pink-500/20' },
+    'Spa & Wellness': { icon: <TagIcon className="w-4 h-4" />, classes: 'bg-sky-500/10 text-sky-400 border border-sky-500/20' },
 };
 
 
 export const ActivityCard: React.FC<ActivityCardProps> = React.memo(
-  ({ activity }) => {
+  ({ activity, onSuggestAlternative }) => {
     const style =
       categoryStyles[activity.category] ||
       ({
@@ -63,7 +68,7 @@ export const ActivityCard: React.FC<ActivityCardProps> = React.memo(
           }`}
         >
           <div className="flex justify-between items-start gap-4">
-            <div>
+            <div className="flex-grow">
               <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
                 <ClockIcon />
                 <span className="font-semibold text-slate-300">
@@ -72,11 +77,30 @@ export const ActivityCard: React.FC<ActivityCardProps> = React.memo(
               </div>
               <h4 className="text-xl font-bold text-white">{activity.title}</h4>
             </div>
-            <div
-              className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full ${style.classes} flex-shrink-0`}
-            >
-              {style.icon}
-              {activity.category}
+
+            {/* Container for badge, button, and new tooltip */}
+            <div className="relative flex-shrink-0">
+              <div
+                className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full whitespace-nowrap ${style.classes} transition-opacity duration-200 group-hover:opacity-10`}
+              >
+                {style.icon}
+                <span>{activity.category}</span>
+              </div>
+              <button
+                onClick={onSuggestAlternative}
+                className="absolute inset-0 flex items-center justify-center text-slate-400 rounded-full hover:text-sky-400 transition-colors duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                aria-label="Suggest an alternative for this activity"
+              >
+                <RefreshIcon className="w-5 h-5" />
+              </button>
+              
+              {/* This is the new tooltip */}
+              <div
+                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/80 backdrop-blur-sm text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap"
+                role="tooltip"
+              >
+                Suggest an alternative
+              </div>
             </div>
           </div>
 

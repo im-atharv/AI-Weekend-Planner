@@ -4,8 +4,9 @@ import { ChatView } from "@/components/chat/ChatView";
 import { continueItineraryChat, initializeChatFromPlan } from "@/services/geminiService";
 import { getPlanById, savePlan, updatePlan } from "@/api";
 import type { Chat } from "@google/genai";
-import type { ChatMessage, User, SavedPlan, Itinerary } from "shared/types";
+import type { ChatMessage, User, SavedPlan, Itinerary, DayPlan } from "shared/types";
 import { Loader } from "@/components/common/Loader";
+import { AlternativeSuggestionModal } from "@/components/chat/AlternativeSuggestionModal";
 
 interface ChatPageProps {
   user: User | null;
@@ -13,12 +14,18 @@ interface ChatPageProps {
   onLoginRequest: () => void;
 }
 
-export const ChatPage: React.FC<ChatPageProps> = ({ user, showToast, onLoginRequest }) => {
+export const ChatPage: React.FC<ChatPageProps> = ({
+  user,
+  showToast,
+  onLoginRequest,
+}) => {
   const { planId } = useParams<{ planId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [currentPlan, setCurrentPlan] = useState<SavedPlan | Itinerary | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<SavedPlan | Itinerary | null>(
+    null
+  );
   const [isPageLoading, setIsPageLoading] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -27,18 +34,23 @@ export const ChatPage: React.FC<ChatPageProps> = ({ user, showToast, onLoginRequ
   const [userMessages, setUserMessages] = useState<ChatMessage[]>([]);
   const chatRef = useRef<Chat | null>(null);
 
-  // Load plan either from DB or from navigation state
+  const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
+  const [activityToReplace, setActivityToReplace] = useState<{
+    dayIndex: number;
+    activityIndex: number;
+    activityTitle: string;
+    day: string;
+  } | null>(null);
+
   useEffect(() => {
     const loadPlan = async () => {
       setIsPageLoading(true);
       try {
         let plan: SavedPlan | Itinerary;
         if (planId) {
-          // Permanent URL → fetch from DB
           plan = await getPlanById(planId);
           setIsPlanSaved(true);
         } else if (location.state?.plan) {
-          // Temporary URL → use navigation state
           plan = location.state.plan;
           setIsPlanSaved(false);
         } else {
@@ -57,14 +69,17 @@ export const ChatPage: React.FC<ChatPageProps> = ({ user, showToast, onLoginRequ
       }
     };
 
-    loadPlan();
-  }, [planId, location.state, navigate, showToast]);
+    if (!user && !location.state?.plan) {
+      navigate("/newplan");
+    } else {
+      loadPlan();
+    }
+  }, [planId, location.state, navigate, showToast, user]);
 
-  // Handle sending a new user message
   const handleSendMessage = async (message: string) => {
     if (!chatRef.current || !currentPlan) return;
 
-    setUserMessages(prev => [...prev, { role: "user", content: message }]);
+    setUserMessages((prev) => [...prev, { role: "user", content: message }]);
     setIsLoading(true);
     setError(null);
 
@@ -72,26 +87,74 @@ export const ChatPage: React.FC<ChatPageProps> = ({ user, showToast, onLoginRequ
       const { updatedItinerary } = await continueItineraryChat(
         chatRef.current,
         message,
-        "preferences" in currentPlan ? currentPlan.preferences : undefined
+        currentPlan.preferences
       );
 
-      const newPlanState = planId
-        ? { ...updatedItinerary, _id: (currentPlan as SavedPlan)._id }
-        : { ...currentPlan, ...updatedItinerary };
+      // Create a stable copy of the current state
+      const newPlanState = JSON.parse(
+        JSON.stringify(currentPlan)
+      ) as Itinerary;
+
+      // Safely merge top-level properties from the AI's response
+      newPlanState.title = updatedItinerary.title || newPlanState.title;
+      newPlanState.totalEstimatedCost =
+        updatedItinerary.totalEstimatedCost || newPlanState.totalEstimatedCost;
+      newPlanState.sources = updatedItinerary.sources || newPlanState.sources;
+
+      // Safely merge the itinerary day by day to preserve day/theme keys
+      if (
+        updatedItinerary.itinerary &&
+        Array.isArray(updatedItinerary.itinerary)
+      ) {
+        newPlanState.itinerary = newPlanState.itinerary.map(
+          (oldDayPlan: DayPlan, index: number) => {
+            const newDayPlan = updatedItinerary.itinerary[index];
+            // If the new plan data for this day exists, merge it over the old one
+            return newDayPlan ? { ...oldDayPlan, ...newDayPlan } : oldDayPlan;
+          }
+        );
+      }
 
       setCurrentPlan(newPlanState);
       setIsPlanSaved(false);
       setUserMessages([]);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An error occurred.";
+      const errorMessage =
+        err instanceof Error ? err.message : "An error occurred.";
       setError(`Failed to update itinerary: ${errorMessage}`);
-      setUserMessages(prev => prev.slice(0, -1));
+      setUserMessages((prev) => prev.slice(0, -1)); // Restore user message on failure
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle saving plan (new or update)
+  const handleOpenSuggestionModal = (
+    dayIndex: number,
+    activityIndex: number
+  ) => {
+    if (!currentPlan) return;
+    const activity = currentPlan.itinerary[dayIndex].activities[activityIndex];
+    const day = currentPlan.itinerary[dayIndex].day;
+    setActivityToReplace({
+      dayIndex,
+      activityIndex,
+      activityTitle: activity.title,
+      day,
+    });
+    setIsSuggestionModalOpen(true);
+  };
+
+  const handleSuggestAlternative = (preference: string) => {
+    if (!activityToReplace) return;
+
+    const { activityTitle, day } = activityToReplace;
+    const prompt = `Please replace the activity "${activityTitle}" on ${day} with an alternative that is more like "${preference}". Keep all other activities the same, but update the travel info and total cost as needed.`;
+
+    handleSendMessage(prompt);
+    setIsSuggestionModalOpen(false);
+    setActivityToReplace(null);
+  };
+
   const handleSavePlan = async () => {
     if (!user) {
       onLoginRequest();
@@ -103,54 +166,64 @@ export const ChatPage: React.FC<ChatPageProps> = ({ user, showToast, onLoginRequ
     try {
       let savedPlanResponse: SavedPlan;
       if (planId) {
-        // Update existing plan
         savedPlanResponse = await updatePlan(planId, currentPlan);
         showToast("Plan updated successfully!", "success");
       } else {
-        // Create new plan
         savedPlanResponse = await savePlan(user.email, currentPlan);
         showToast("Plan saved successfully!", "success");
-        // Switch to permanent URL
         navigate(`/chat/${savedPlanResponse._id}`, { replace: true });
       }
       setCurrentPlan(savedPlanResponse);
       setIsPlanSaved(true);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to save plan.", "error");
+      showToast(
+        err instanceof Error ? err.message : "Failed to save plan.",
+        "error"
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Memoize chat messages
   const chatMessages = useMemo<ChatMessage[]>(() => {
     if (!currentPlan) return [];
     return [{ role: "model", content: currentPlan }, ...userMessages];
   }, [currentPlan, userMessages]);
 
   if (isPageLoading) {
-    return <Loader progress={50} />;
+    return <Loader progress={ 50 } />;
   }
 
   if (!currentPlan) {
     return (
-      <div className="text-center text-red-400">
-        Could not load plan. Please try again.
+      <div className= "text-center text-red-400" >
+      Could not load plan.Please try again.
       </div>
     );
   }
 
-  return (
-    <ChatView
-      messages={chatMessages}
-      onSendMessage={handleSendMessage}
-      onReset={() => navigate("/newplan")}
-      onSavePlan={handleSavePlan}
-      isLoading={isLoading}
-      isSaving={isSaving}
-      isPlanSaved={isPlanSaved}
-      user={user}
-      error={error}
-    />
+return (
+  <>
+  <ChatView
+        messages= { chatMessages }
+onSendMessage = { handleSendMessage }
+onReset = {() => navigate("/newplan")}
+onSavePlan = { handleSavePlan }
+isLoading = { isLoading }
+isSaving = { isSaving }
+isPlanSaved = { isPlanSaved }
+user = { user }
+error = { error }
+onSuggestAlternative = { handleOpenSuggestionModal }
+  />
+  { activityToReplace && (
+    <AlternativeSuggestionModal
+          isOpen={ isSuggestionModalOpen }
+onClose = {() => setIsSuggestionModalOpen(false)}
+onSubmit = { handleSuggestAlternative }
+activityTitle = { activityToReplace.activityTitle }
+  />
+      )}
+</>
   );
 };

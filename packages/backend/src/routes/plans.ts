@@ -10,8 +10,8 @@ import {
 const router = Router();
 
 router.post("/", createPlan);
-router.get("/:email", getPlansByEmail);
 router.get("/plan/:id", getPlanById);
+router.get("/:email", getPlansByEmail);
 router.delete("/:id", deletePlan);
 router.put("/:id", updatePlan);
 

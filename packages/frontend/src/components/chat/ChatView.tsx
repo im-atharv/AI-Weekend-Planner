@@ -27,6 +27,7 @@ interface ChatViewProps {
   isPlanSaved: boolean;
   user: User | null;
   error: string | null;
+  onSuggestAlternative: (dayIndex: number, activityIndex: number) => void;
 }
 
 // Sub-component for displaying travel info between activities
@@ -80,9 +81,10 @@ const SourceInfo: React.FC<{ sources?: GroundingMetadataSource[] }> = ({
 };
 
 // Sub-component for displaying the AI's itinerary message
-const ItineraryMessage: React.FC<{ itinerary: Itinerary }> = ({
-  itinerary,
-}) => {
+const ItineraryMessage: React.FC<{
+  itinerary: Itinerary;
+  onSuggestAlternative: (dayIndex: number, activityIndex: number) => void;
+}> = ({ itinerary, onSuggestAlternative }) => {
   return (
     <div className="animate-fade-in bg-slate-800 p-6 rounded-lg border border-slate-700">
       <div className="text-center mb-12">
@@ -108,7 +110,12 @@ const ItineraryMessage: React.FC<{ itinerary: Itinerary }> = ({
               {dayPlan.activities.map((activity, activityIndex) => (
                 <React.Fragment key={activityIndex}>
                   <TravelInfoComponent info={activity.travelInfo} />
-                  <ActivityCard activity={activity} />
+                  <ActivityCard
+                    activity={activity}
+                    onSuggestAlternative={() =>
+                      onSuggestAlternative(dayIndex, activityIndex)
+                    }
+                  />
                 </React.Fragment>
               ))}
             </div>
@@ -182,6 +189,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   isPlanSaved,
   user,
   error,
+  onSuggestAlternative,
 }) => {
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
@@ -211,7 +219,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
         {messages.map((msg, index) => {
           if (msg.role === "model") {
             return typeof msg.content === "string" ? null : (
-              <ItineraryMessage key={index} itinerary={msg.content} />
+              <ItineraryMessage
+                key={index}
+                itinerary={msg.content}
+                onSuggestAlternative={onSuggestAlternative}
+              />
             );
           }
           return typeof msg.content === "string" ? (
