@@ -68,6 +68,7 @@ export interface Itinerary {
 
 export interface SavedPlan extends Itinerary {
     _id: string;
+    userEmail: string;
     createdAt?: string;
     updatedAt?: string;
     __v?: number;
