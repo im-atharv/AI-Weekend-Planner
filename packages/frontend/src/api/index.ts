@@ -3,15 +3,25 @@ import { Itinerary, SavedPlan, User } from "shared/types";
 const API_BASE_URL = "/api";
 
 const handleResponse = async (response: Response) => {
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "An unknown error occurred" }));
-        const msg = errorData.message || errorData.error || errorData.msg || "Something went wrong with the request";
-        throw new Error(msg);
-    }
-    if (response.status === 204) {
-        return;
-    }
-    return response.json();
+  const ct = response.headers.get("content-type") || "";
+  if (response.status === 204) return;
+  const parseJson = async () => {
+    try { return await response.json(); } catch { return null; }
+  };
+  const parseText = async () => {
+    try { return await response.text(); } catch { return ""; }
+  };
+
+  const payload = ct.includes("application/json") ? await parseJson() : await parseText();
+
+  if (!response.ok) {
+    const msg =
+      (payload && typeof payload === "object" && (payload.message || payload.error || payload.msg)) ||
+      (typeof payload === "string" && payload) ||
+      "Something went wrong with the request";
+    throw new Error(msg);
+  }
+  return ct.includes("application/json") ? payload : { data: payload };
 };
 
 export const getSavedPlans = (userEmail: string): Promise<SavedPlan[]> => {
