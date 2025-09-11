@@ -27,7 +27,16 @@ export const googleLogin = async (
       });
       await user.save();
     }
-    return res.json(user);
+    
+    const userPayload = {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+    };
+    return res.json(userPayload);
+
   } catch (err) {
     return next(err);
   }
@@ -66,7 +75,6 @@ export const register = async (
     const passwordHash = await bcrypt.hash(password, 10);
     const user = new User({ name, email: normalizedEmail, passwordHash });
     await user.save();
-    // Do not expose passwordHash
     return res.status(201).json({ name: user.name, email: user.email });
   } catch (err) {
     return next(err);

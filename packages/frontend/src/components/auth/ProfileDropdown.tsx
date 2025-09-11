@@ -22,7 +22,10 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, onLogout
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getInitials = (name: string) => {
+  const getInitials = (name?: string) => {
+    if (!name || typeof name !== 'string') {
+      return '??'; // Provide a fallback
+    }
     const names = name.split(' ');
     if (names.length > 1 && names[0] && names[names.length - 1]) {
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
@@ -45,7 +48,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, onLogout
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-20 animate-fade-in-fast">
           <div className="p-2 border-b border-slate-700">
-             <p className="text-sm font-semibold text-white truncate">{user.name}</p>
+             <p className="text-sm font-semibold text-white truncate">{user.name || 'User'}</p>
              <p className="text-xs text-slate-400 truncate">{user.email}</p>
           </div>
           <ul className="py-1" role="menu">
