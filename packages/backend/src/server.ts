@@ -8,7 +8,10 @@ import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: ["http://localhost:5173", "https://curate-ai.onrender.com"],
+  credentials: true
+}))
 app.use(express.json());
 
 connectDB();
