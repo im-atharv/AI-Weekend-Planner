@@ -36,7 +36,7 @@ export const PlansPage: React.FC<PlansPageProps> = ({ user, onLoginRequest }) =>
     } catch (err) {
       console.error("Failed to load plans:", err);
     } finally {
-      setTimeout(() => setIsLoading(false), 200);
+      setIsLoading(false);
     }
   }, []);
 
@@ -61,17 +61,17 @@ export const PlansPage: React.FC<PlansPageProps> = ({ user, onLoginRequest }) =>
   };
 
   const handleLoadPlan = (plan: SavedPlan) => {
-    navigate(`/chat/${plan._id}`);
+    navigate(`/chat/${plan._id}`, { state: { plan } });
   };
 
   if (!user) {
     return (
-        <div className="text-center p-8 bg-slate-800 rounded-lg shadow-md border border-slate-700 w-full max-w-2xl">
-            <h2 className="text-2xl font-bold text-white mb-2">Access Your Plans</h2>
-            <p className="text-slate-400 mb-6">Please log in to see your saved weekend plans.</p>
-            <button onClick={onLoginRequest} className="bg-sky-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-sky-700">
-                Login
-            </button>
+      <div className="text-center p-8 bg-slate-800 rounded-lg shadow-md border border-slate-700 w-full max-w-2xl">
+        <h2 className="text-2xl font-bold text-white mb-2">Access Your Plans</h2>
+        <p className="text-slate-400 mb-6">Please log in to see your saved weekend plans.</p>
+        <button onClick={onLoginRequest} className="bg-sky-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-sky-700">
+          Login
+        </button>
       </div>
     );
   }

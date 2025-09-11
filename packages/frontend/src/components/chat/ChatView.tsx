@@ -30,10 +30,7 @@ interface ChatViewProps {
   onSuggestAlternative: (dayIndex: number, activityIndex: number) => void;
 }
 
-// Sub-component for displaying travel info between activities
-const TravelInfoComponent: React.FC<{ info: Activity["travelInfo"] }> = ({
-  info,
-}) => {
+const TravelInfoComponent: React.FC<{ info: Activity["travelInfo"] }> = ({ info }) => {
   if (!info) return null;
   return (
     <div className="relative h-16">
@@ -51,10 +48,7 @@ const TravelInfoComponent: React.FC<{ info: Activity["travelInfo"] }> = ({
   );
 };
 
-// Sub-component for displaying grounding metadata sources
-const SourceInfo: React.FC<{ sources?: GroundingMetadataSource[] }> = ({
-  sources,
-}) => {
+const SourceInfo: React.FC<{ sources?: GroundingMetadataSource[] }> = ({ sources }) => {
   if (!sources || sources.length === 0) return null;
   return (
     <div className="mt-8 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
@@ -80,13 +74,12 @@ const SourceInfo: React.FC<{ sources?: GroundingMetadataSource[] }> = ({
   );
 };
 
-// Sub-component for displaying the AI's itinerary message
 const ItineraryMessage: React.FC<{
   itinerary: Itinerary;
   onSuggestAlternative: (dayIndex: number, activityIndex: number) => void;
 }> = ({ itinerary, onSuggestAlternative }) => {
   return (
-    <div className="animate-fade-in bg-slate-800 p-6 rounded-lg border border-slate-700">
+    <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
       <div className="text-center mb-12">
         <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
           {itinerary.title}
@@ -127,7 +120,6 @@ const ItineraryMessage: React.FC<{
   );
 };
 
-// Sub-component for displaying the user's message
 const UserMessage = React.memo<{ text: string }>(({ text }) => (
   <div className="flex justify-end">
     <div className="bg-sky-600 text-white p-3 rounded-lg max-w-lg shadow-md">
@@ -136,7 +128,6 @@ const UserMessage = React.memo<{ text: string }>(({ text }) => (
   </div>
 ));
 
-// Sub-component for the chat input form
 const ChatInput: React.FC<{
   onSendMessage: (message: string) => void;
   isLoading: boolean;
@@ -157,12 +148,10 @@ const ChatInput: React.FC<{
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={
-            isLoading
-              ? "AI Architect is thinking..."
-              : "Ask for changes or suggestions..."
+            isLoading ? "AI Architect is thinking..." : "Ask for changes or suggestions..."
           }
           disabled={isLoading}
-          className="w-full pl-4 pr-12 py-3 text-base bg-slate-700 text-slate-200 border border-slate-600 rounded-full shadow-lg focus:ring-2 focus:ring-sky-500 focus:outline-none transition-all"
+          className="w-full pl-4 pr-12 py-3 text-base bg-slate-700 text-slate-200 border border-slate-600 rounded-full shadow-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
           aria-label="Chat with AI"
         />
         <button
@@ -178,7 +167,6 @@ const ChatInput: React.FC<{
   );
 };
 
-// Main ChatView Component
 export const ChatView: React.FC<ChatViewProps> = ({
   messages,
   onSendMessage,
@@ -192,7 +180,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onSuggestAlternative,
 }) => {
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
-  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+  const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
   const prevLenRef = useRef(0);
@@ -208,14 +196,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
     const lastIsUser = last && last.role === "user" && typeof last.content === "string";
     const loadingJustStarted = !prevLoadingRef.current && isLoading;
 
-    const shouldScroll = !isInitialModelOnly && (
-      (listGrew && lastIsUser) || loadingJustStarted
-    );
+    const shouldScroll =
+      !isInitialModelOnly && ((listGrew && lastIsUser) || loadingJustStarted);
+
     prevLenRef.current = len;
     prevLoadingRef.current = isLoading;
 
     if (shouldScroll) {
-      scrollToBottom();
+      scrollToBottom("auto");
     }
   }, [messages, isLoading]);
 
@@ -224,7 +212,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   );
 
   return (
-    <div className="animate-fade-in w-full">
+    <div className="w-full">
       <div className="flex flex-wrap gap-4 justify-between items-center mb-8">
         <button
           onClick={onReset}
@@ -250,23 +238,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
             <UserMessage key={index} text={msg.content} />
           ) : null;
         })}
+
         {isLoading && messages.length > 0 && (
           <div className="flex justify-start">
             <div className="bg-slate-800 p-4 rounded-lg">
               <div className="flex items-center gap-2 text-sm text-slate-400">
-                <div className="w-2 h-2 bg-sky-500 rounded-full animate-pulse"></div>
-                <div
-                  className="w-2 h-2 bg-sky-500 rounded-full animate-pulse"
-                  style={{ animationDelay: "0.2s" }}
-                ></div>
-                <div
-                  className="w-2 h-2 bg-sky-500 rounded-full animate-pulse"
-                  style={{ animationDelay: "0.4s" }}
-                ></div>
+                <div className="w-2 h-2 bg-sky-500 rounded-full" />
+                <div className="w-2 h-2 bg-sky-500 rounded-full" />
+                <div className="w-2 h-2 bg-sky-500 rounded-full" />
               </div>
             </div>
           </div>
         )}
+
         {error && (
           <div className="flex justify-start">
             <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-3 rounded-lg max-w-lg shadow-md">
@@ -274,6 +258,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             </div>
           </div>
         )}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -288,7 +273,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             <button
               onClick={onSavePlan}
               disabled={isSaving}
-              className="flex items-center justify-center gap-3 w-full max-w-xs mx-auto bg-slate-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-slate-600 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-3 w-full max-w-xs mx-auto bg-slate-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <SaveIcon />
               <span>

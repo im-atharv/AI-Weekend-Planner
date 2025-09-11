@@ -6,7 +6,6 @@ import { getPlanById, savePlan, updatePlan } from "@/api";
 import type { Chat } from "@google/genai";
 import type { ChatMessage, User, SavedPlan, Itinerary, DayPlan } from "shared/types";
 import { AlternativeSuggestionModal } from "@/components/chat/AlternativeSuggestionModal";
-import LoadingBackdrop from "@/components/common/LoadingBackdrop";
 
 interface ChatPageProps {
   user: User | null;
@@ -22,16 +21,15 @@ export const ChatPage: React.FC<ChatPageProps> = ({
   const { planId } = useParams<{ planId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const [currentPlan, setCurrentPlan] = useState<SavedPlan | Itinerary | null>(null);
-  const [isPageLoading, setIsPageLoading] = useState<boolean>(true);
+  const seededPlan = (location.state as { plan?: SavedPlan | Itinerary } | null)?.plan ?? null;
+  const [currentPlan, setCurrentPlan] = useState<SavedPlan | Itinerary | null>(seededPlan);
+  const [isPageLoading, setIsPageLoading] = useState<boolean>(!seededPlan);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [isPlanSaved, setIsPlanSaved] = useState<boolean>(false);
+  const [isPlanSaved, setIsPlanSaved] = useState<boolean>(!!seededPlan && "_id" in seededPlan);
   const [error, setError] = useState<string | null>(null);
   const [userMessages, setUserMessages] = useState<ChatMessage[]>([]);
   const chatRef = useRef<Chat | null>(null);
-
   const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
   const [activityToReplace, setActivityToReplace] = useState<{
     dayIndex: number;
@@ -42,22 +40,36 @@ export const ChatPage: React.FC<ChatPageProps> = ({
 
   useEffect(() => {
     window.scrollTo(0, 0);
+
+    const initFromSeed = () => {
+      if (seededPlan && !chatRef.current) {
+        try {
+          chatRef.current = initializeChatFromPlan(seededPlan, (location.state as any)?.history);
+          setIsPageLoading(false);
+        } catch (err) {
+          console.error("Failed to init chat from seeded plan:", err);
+          setIsPageLoading(false);
+        }
+      }
+    };
+
     const loadPlan = async () => {
       setIsPageLoading(true);
       try {
-        let plan: SavedPlan | Itinerary;
         if (planId) {
-          plan = await getPlanById(planId);
+          const plan = await getPlanById(planId);
+          setCurrentPlan(plan);
           setIsPlanSaved(true);
-        } else if (location.state?.plan) {
-          plan = location.state.plan;
-          setIsPlanSaved(false);
+          chatRef.current = initializeChatFromPlan(plan, (location.state as any)?.history);
+        } else if ((location.state as any)?.plan) {
+          const plan = (location.state as any).plan as SavedPlan | Itinerary;
+          setCurrentPlan(plan);
+          setIsPlanSaved(!!("_id" in plan));
+          chatRef.current = initializeChatFromPlan(plan, (location.state as any)?.history);
         } else {
           navigate("/newplan");
           return;
         }
-        setCurrentPlan(plan);
-        chatRef.current = initializeChatFromPlan(plan, location.state?.history);
       } catch (err) {
         console.error("Failed to load plan:", err);
         showToast("Could not load the requested plan.", "error");
@@ -67,12 +79,12 @@ export const ChatPage: React.FC<ChatPageProps> = ({
       }
     };
 
-    if (planId || location.state?.plan) {
-      loadPlan();
+    if (seededPlan) {
+      initFromSeed();
     } else {
-      navigate("/newplan");
+      loadPlan();
     }
-  }, [planId, location.state, navigate, showToast]);
+  }, [planId]);
 
   const handleSendMessage = async (message: string) => {
     if (!chatRef.current || !currentPlan) return;
@@ -85,7 +97,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({
       const { updatedItinerary } = await continueItineraryChat(
         chatRef.current,
         message,
-        currentPlan.preferences
+        (currentPlan as Itinerary).preferences
       );
 
       const newPlanState = JSON.parse(JSON.stringify(currentPlan)) as Itinerary;
@@ -118,8 +130,8 @@ export const ChatPage: React.FC<ChatPageProps> = ({
 
   const handleOpenSuggestionModal = (dayIndex: number, activityIndex: number) => {
     if (!currentPlan) return;
-    const activity = currentPlan.itinerary[dayIndex].activities[activityIndex];
-    const day = currentPlan.itinerary[dayIndex].day;
+    const activity = (currentPlan as Itinerary).itinerary[dayIndex].activities[activityIndex];
+    const day = (currentPlan as Itinerary).itinerary[dayIndex].day;
     setActivityToReplace({
       dayIndex,
       activityIndex,
@@ -154,9 +166,12 @@ export const ChatPage: React.FC<ChatPageProps> = ({
         savedPlanResponse = await updatePlan(planId, currentPlan);
         showToast("Plan updated successfully!", "success");
       } else {
-        savedPlanResponse = await savePlan(user.email, currentPlan);
+        savedPlanResponse = await savePlan(user.email, currentPlan as Itinerary);
         showToast("Plan saved successfully!", "success");
-        navigate(`/chat/${savedPlanResponse._id}`, { replace: true });
+        navigate(`/chat/${savedPlanResponse._id}`, {
+          replace: true,
+          state: { plan: savedPlanResponse },
+        });
       }
       setCurrentPlan(savedPlanResponse);
       setIsPlanSaved(true);
@@ -172,20 +187,22 @@ export const ChatPage: React.FC<ChatPageProps> = ({
     return [{ role: "model", content: currentPlan }, ...userMessages];
   }, [currentPlan, userMessages]);
 
-  if (isPageLoading) {
-    return <LoadingBackdrop />;
+  if (isPageLoading && !currentPlan) {
+    return <div className="min-h-screen w-full bg-slate-900" />;
   }
 
   if (!currentPlan) {
     return (
-      <div className="text-center text-red-400">
-        Could not load plan. Please try again.
+      <div className="min-h-screen w-full bg-slate-900 grid place-items-center">
+        <div className="text-center text-red-400">
+          Could not load plan. Please try again.
+        </div>
       </div>
     );
   }
 
   return (
-    <>
+    <div className="min-h-screen w-full bg-slate-900">
       <ChatView
         messages={chatMessages}
         onSendMessage={handleSendMessage}
@@ -206,6 +223,6 @@ export const ChatPage: React.FC<ChatPageProps> = ({
           activityTitle={activityToReplace.activityTitle}
         />
       )}
-    </>
+    </div>
   );
 };

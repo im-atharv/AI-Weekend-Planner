@@ -40,7 +40,7 @@ const App: React.FC = () => {
     setCurrentUser(user); 
     setAuthModalOpen(false);
     showToast(`Welcome back, ${user.name}!`, "success");
-    navigate('/plans');
+    navigate('/newplan');
   };
 
   const handleLogout = () => {
