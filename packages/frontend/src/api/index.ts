@@ -1,6 +1,6 @@
 import { Itinerary, SavedPlan, User } from "shared/types";
 
-const API_BASE_URL = "/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api";
 
 const handleResponse = async (response: Response) => {
   const ct = response.headers.get("content-type") || "";
