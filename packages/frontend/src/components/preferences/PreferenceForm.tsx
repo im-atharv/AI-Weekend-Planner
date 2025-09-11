@@ -198,26 +198,25 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
   const [isCalendarOpen, setCalendarOpen] = useState(false);
   const mapPreviewRef = useRef<any>(null);
   const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
+  const selectionMadeRef = useRef(false);
 
   useEffect(() => {
-    // This function tries to initialize the autocomplete service.
     const initializeService = () => {
       if (window.google && window.google.maps && window.google.maps.places && !autocompleteService.current) {
         autocompleteService.current = new window.google.maps.places.AutocompleteService();
-        return true; // Indicates success
+        return true;
       }
-      return false; // Indicates failure
+      return false;
     };
 
-    // Try to initialize immediately. If it fails, set up an interval to keep trying.
     if (!initializeService()) {
       const intervalId = setInterval(() => {
         if (initializeService()) {
-          clearInterval(intervalId); // Stop checking once successful
+          clearInterval(intervalId);
         }
-      }, 100); // Check every 100ms
+      }, 100);
 
-      return () => clearInterval(intervalId); // Cleanup on unmount
+      return () => clearInterval(intervalId);
     }
   }, []);
 
@@ -291,6 +290,11 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
   };
 
   useEffect(() => {
+    if (selectionMadeRef.current) {
+        selectionMadeRef.current = false;
+        return;
+    }
+
     if (debouncedAddress && debouncedAddress.length > 3 && autocompleteService.current) {
       const fetchSuggestions = async () => {
         setIsSuggestionsLoading(true);
@@ -330,6 +334,7 @@ export const PreferenceForm: React.FC<PreferenceFormProps> = ({ onSubmit }) => {
     place_id: string;
   }) => {
     const { description: address, place_id } = suggestion;
+    selectionMadeRef.current = true;
     setAddressInput(address);
     setSuggestions([]);
     try {

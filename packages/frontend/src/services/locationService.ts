@@ -38,7 +38,7 @@ export const getAddressSuggestions = async (
 
   return new Promise((resolve, reject) => {
     autocompleteService.getPlacePredictions(
-      { input: query, types: ["address"] },
+      { input: query, types: ["geocode"] },
       (predictions, status) => {
         if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions) {
           reject(new Error(`Failed to fetch suggestions from Google Maps API. Status: ${status}`));

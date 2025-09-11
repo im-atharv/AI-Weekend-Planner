@@ -77,22 +77,38 @@ const cleanJsonText = (text: string) => {
         console.error("Received invalid text input for JSON cleaning:", text);
         throw new Error("Received no response from the AI architect.");
     }
-    const jsonStart = text.indexOf('{');
-    const jsonEnd = text.lastIndexOf('}');
-    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) {
+
+    let cleanText = text.replace(/^```json/, '').replace(/```$/, '').trim();
+
+    const jsonStart = cleanText.indexOf('{');
+    let jsonEnd = cleanText.lastIndexOf('}');
+
+    if (jsonStart === -1 || jsonEnd === -1) {
         console.error("Failed to find a valid JSON object in the text.", { text });
         throw new Error("Received malformed JSON from the AI architect.");
     }
-    let jsonString = text.substring(jsonStart, jsonEnd + 1);
-    jsonString = jsonString.replace(/[\n\r]/g, ' ');
+
+    let jsonString = cleanText.substring(jsonStart, jsonEnd + 1);
+
     try {
         return JSON.parse(jsonString);
     } catch (e) {
-        console.error("Failed to parse JSON string:", e);
-        console.error("Original text from AI:", text);
-        throw new Error("Received malformed JSON from the AI architect.");
+        const lastBracketIndex = jsonString.lastIndexOf('}');
+        const lastSquareBracketIndex = jsonString.lastIndexOf(']');
+        
+        jsonEnd = Math.max(lastBracketIndex, lastSquareBracketIndex);
+        jsonString = jsonString.substring(0, jsonEnd + 1);
+
+        try {
+            return JSON.parse(jsonString);
+        } catch (finalError) {
+             console.error("Failed to parse JSON string even after cleanup:", finalError);
+             console.error("Original text from AI:", text);
+             throw new Error("Received malformed JSON from the AI architect.");
+        }
     }
 }
+
 
 const removeCitations = (obj: any): any => {
     if (obj === null || typeof obj !== 'object') {
@@ -116,7 +132,6 @@ const removeCitations = (obj: any): any => {
 };
 
 const getSystemInstruction = (preferences: Preferences) => {
-    // Dynamically extract the city name from the user's address for hyper-local focus
     const city = preferences.location.address.split(',').slice(-2, -1)[0]?.trim() || 'the user\'s specified city';
 
     return `
