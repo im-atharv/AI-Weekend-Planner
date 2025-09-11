@@ -108,6 +108,8 @@ const ItineraryMessage: React.FC<{
                     onSuggestAlternative={() =>
                       onSuggestAlternative(dayIndex, activityIndex)
                     }
+                    dayIndex={dayIndex}
+                    activityIndex={activityIndex}
                   />
                 </React.Fragment>
               ))}

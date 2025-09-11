@@ -13,6 +13,8 @@ import {
 interface ActivityCardProps {
   activity: Activity;
   onSuggestAlternative: () => void;
+  dayIndex: number;    
+  activityIndex: number; 
 }
 
 const categoryStyles: { [key: string]: { icon: React.ReactElement, classes: string } } = {
@@ -33,9 +35,8 @@ const categoryStyles: { [key: string]: { icon: React.ReactElement, classes: stri
     'Spa & Wellness': { icon: <TagIcon className="w-4 h-4" />, classes: 'bg-sky-500/10 text-sky-400 border border-sky-500/20' },
 };
 
-
 export const ActivityCard: React.FC<ActivityCardProps> = React.memo(
-  ({ activity, onSuggestAlternative }) => {
+  ({ activity, onSuggestAlternative, dayIndex, activityIndex }) => {
     const style =
       categoryStyles[activity.category] ||
       ({
@@ -52,7 +53,7 @@ export const ActivityCard: React.FC<ActivityCardProps> = React.memo(
           "Location details unavailable";
 
     return (
-      <div className="relative group">
+      <div id={`activity-${dayIndex}-${activityIndex}`} className="relative group">
         <div
           className={`absolute -left-[33px] top-2 h-4 w-4 rounded-full border-2 border-slate-800 transition-colors ${
             isSpecial
@@ -78,7 +79,6 @@ export const ActivityCard: React.FC<ActivityCardProps> = React.memo(
               <h4 className="text-xl font-bold text-white">{activity.title}</h4>
             </div>
 
-            {/* Container for badge, button, and new tooltip */}
             <div className="relative flex-shrink-0">
               <div
                 className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full whitespace-nowrap ${style.classes} transition-opacity duration-200 group-hover:opacity-10`}
@@ -94,7 +94,6 @@ export const ActivityCard: React.FC<ActivityCardProps> = React.memo(
                 <RefreshIcon className="w-5 h-5" />
               </button>
               
-              {/* This is the new tooltip */}
               <div
                 className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/80 backdrop-blur-sm text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap"
                 role="tooltip"
