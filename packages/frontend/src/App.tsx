@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Header } from "./components/common/Header";
 import { Footer } from "./components/common/Footer";
@@ -12,35 +12,40 @@ import PageTransition from "./components/common/PageTransition";
 
 type ToastMessage = { message: string; type: "success" | "error" | "info" };
 
+const getInitialUser = (): User | null => {
+  try {
+    const item = localStorage.getItem("curateUser");
+    return item ? JSON.parse(item) : null;
+  } catch (error) {
+    console.error("Error parsing user from localStorage", error);
+    localStorage.removeItem("curateUser");
+    return null;
+  }
+};
+
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  const [currentUser, setCurrentUser] = useState<User | null>(getInitialUser());
   const [isAuthModalOpen, setAuthModalOpen] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
-
-  useEffect(() => {
-    const loggedInUser = localStorage.getItem("curateUser");
-    if (loggedInUser) {
-      setCurrentUser(JSON.parse(loggedInUser));
-    }
-  }, []);
 
   const showToast = useCallback((message: string, type: ToastMessage['type']) => {
     setToast({ message, type });
   }, []);
 
   const handleLogin = (user: User) => {
-    setCurrentUser(user);
     localStorage.setItem("curateUser", JSON.stringify(user));
+    setCurrentUser(user); 
     setAuthModalOpen(false);
     showToast(`Welcome back, ${user.name}!`, "success");
     navigate('/plans');
   };
 
   const handleLogout = () => {
-    setCurrentUser(null);
     localStorage.removeItem("curateUser");
+    setCurrentUser(null); 
     if (location.pathname.startsWith('/plans') || location.pathname.startsWith('/chat')) {
         navigate('/newplan');
     }

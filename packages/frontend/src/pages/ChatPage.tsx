@@ -5,8 +5,8 @@ import { continueItineraryChat, initializeChatFromPlan } from "@/services/gemini
 import { getPlanById, savePlan, updatePlan } from "@/api";
 import type { Chat } from "@google/genai";
 import type { ChatMessage, User, SavedPlan, Itinerary, DayPlan } from "shared/types";
-import { Loader } from "@/components/common/Loader";
 import { AlternativeSuggestionModal } from "@/components/chat/AlternativeSuggestionModal";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface ChatPageProps {
   user: User | null;
@@ -43,6 +43,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({
   } | null>(null);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     const loadPlan = async () => {
       setIsPageLoading(true);
       try {
@@ -185,40 +186,60 @@ export const ChatPage: React.FC<ChatPageProps> = ({
     return [{ role: "model", content: currentPlan }, ...userMessages];
   }, [currentPlan, userMessages]);
 
-  if (isPageLoading) {
-    return <Loader progress={ 50 } />;
-  }
-
-  if (!currentPlan) {
-    return (
-      <div className= "text-center text-red-400" >
-      Could not load plan.Please try again.
-      </div>
-    );
-  }
-
-return (
-  <>
-  <ChatView
-        messages= { chatMessages }
-onSendMessage = { handleSendMessage }
-onReset = {() => navigate("/newplan")}
-onSavePlan = { handleSavePlan }
-isLoading = { isLoading }
-isSaving = { isSaving }
-isPlanSaved = { isPlanSaved }
-user = { user }
-error = { error }
-onSuggestAlternative = { handleOpenSuggestionModal }
-  />
-  { activityToReplace && (
-    <AlternativeSuggestionModal
-          isOpen={ isSuggestionModalOpen }
-onClose = {() => setIsSuggestionModalOpen(false)}
-onSubmit = { handleSuggestAlternative }
-activityTitle = { activityToReplace.activityTitle }
-  />
+  return (
+    <>
+      <AnimatePresence mode="wait">
+        {isPageLoading ? (
+          <motion.div
+            key="loader"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+          </motion.div>
+        ) : !currentPlan ? (
+           <motion.div
+            key="error"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="text-center text-red-400"
+          >
+            Could not load plan. Please try again.
+          </motion.div>
+        ) : (
+          <motion.div
+            key="content"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <ChatView
+              messages={chatMessages}
+              onSendMessage={handleSendMessage}
+              onReset={() => navigate("/newplan")}
+              onSavePlan={handleSavePlan}
+              isLoading={isLoading}
+              isSaving={isSaving}
+              isPlanSaved={isPlanSaved}
+              user={user}
+              error={error}
+              onSuggestAlternative={handleOpenSuggestionModal}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {activityToReplace && (
+        <AlternativeSuggestionModal
+          isOpen={isSuggestionModalOpen}
+          onClose={() => setIsSuggestionModalOpen(false)}
+          onSubmit={handleSuggestAlternative}
+          activityTitle={activityToReplace.activityTitle}
+        />
       )}
-</>
+    </>
   );
 };

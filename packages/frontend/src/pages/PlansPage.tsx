@@ -9,29 +9,42 @@ interface PlansPageProps {
   onLoginRequest: () => void;
 }
 
+const SkeletonLoader: React.FC = () => (
+  <div className="w-full max-w-4xl animate-pulse">
+    <div className="h-9 w-72 bg-slate-700/60 rounded mb-8" />
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="bg-slate-800 p-4 rounded-lg border border-slate-700">
+          <div className="h-5 w-64 bg-slate-700/60 rounded mb-3" />
+          <div className="h-3 w-80 bg-slate-700/50 rounded mb-2" />
+          <div className="h-3 w-48 bg-slate-700/40 rounded" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 export const PlansPage: React.FC<PlansPageProps> = ({ user, onLoginRequest }) => {
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
-  // The initial state now correctly depends on whether a user is present.
   const [isLoading, setIsLoading] = useState(!!user);
   const navigate = useNavigate();
 
   const loadPlans = useCallback(async (email: string) => {
-    setIsLoading(true);
     try {
       const data = await getSavedPlans(email);
       setSavedPlans(data);
     } catch (err) {
       console.error("Failed to load plans:", err);
     } finally {
-      setIsLoading(false);
+      setTimeout(() => setIsLoading(false), 200);
     }
   }, []);
 
   useEffect(() => {
     if (user) {
+      setIsLoading(true);
       loadPlans(user.email);
     } else {
-      // This ensures that if the user logs out, the loader is hidden.
       setIsLoading(false);
     }
   }, [user, loadPlans]);
@@ -62,23 +75,8 @@ export const PlansPage: React.FC<PlansPageProps> = ({ user, onLoginRequest }) =>
       </div>
     );
   }
-
-  // Lightweight skeleton to avoid "No Saved Plans" flash while loading
   if (isLoading) {
-    return (
-      <div className="w-full max-w-4xl animate-fade-in">
-        <div className="h-9 w-72 bg-slate-700/60 rounded mb-8 animate-pulse" />
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-slate-800 p-4 rounded-lg border border-slate-700">
-              <div className="h-5 w-64 bg-slate-700/60 rounded mb-3 animate-pulse" />
-              <div className="h-3 w-80 bg-slate-700/50 rounded mb-2 animate-pulse" />
-              <div className="h-3 w-48 bg-slate-700/40 rounded animate-pulse" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <SkeletonLoader />;
   }
 
   return (

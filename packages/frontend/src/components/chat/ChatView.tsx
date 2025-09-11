@@ -192,12 +192,32 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onSuggestAlternative,
 }) => {
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
   };
+  const prevLenRef = useRef(0);
+  const prevLoadingRef = useRef(false);
 
-  useEffect(scrollToBottom, [messages]);
+  useEffect(() => {
+    const len = messages.length;
+    const last = len ? messages[len - 1] : null;
+    const isInitialModelOnly =
+      len > 0 &&
+      messages.every((m) => m.role === "model" && typeof m.content !== "string");
+    const listGrew = len > prevLenRef.current;
+    const lastIsUser = last && last.role === "user" && typeof last.content === "string";
+    const loadingJustStarted = !prevLoadingRef.current && isLoading;
+
+    const shouldScroll = !isInitialModelOnly && (
+      (listGrew && lastIsUser) || loadingJustStarted
+    );
+    prevLenRef.current = len;
+    prevLoadingRef.current = isLoading;
+
+    if (shouldScroll) {
+      scrollToBottom();
+    }
+  }, [messages, isLoading]);
 
   const hasItinerary = messages.some(
     (msg) => msg.role === "model" && typeof msg.content !== "string"
