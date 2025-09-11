@@ -90,10 +90,9 @@ export const login = async (
       return res.status(400).json({ error: "Please provide a valid email" });
     }
     const normalizedEmail = String(email).toLowerCase().trim();
-    // Need passwordHash for comparison
-    const user = await (User as any)
+    const user = await User
       .findOne({ email: normalizedEmail })
-      .select("+passwordHash name email");
+      .select("+passwordHash");
 
     if (!user) {
       return res.status(400).json({ error: "Invalid email or password" });
@@ -109,7 +108,6 @@ export const login = async (
     if (!isValid) {
       return res.status(400).json({ error: "Invalid email or password" });
     }
-
     return res.json({ name: user.name, email: user.email });
   } catch (err) {
     return next(err);

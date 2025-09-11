@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import type { User as SharedUser } from "../../../shared/types";
+import type { User as SharedUser } from "../../../shared/types.js";
 
 // Extend the shared User type for persistence fields
 interface UserDocument extends SharedUser {
