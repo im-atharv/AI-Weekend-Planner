@@ -6,7 +6,7 @@ import { getPlanById, savePlan, updatePlan } from "@/api";
 import type { Chat } from "@google/genai";
 import type { ChatMessage, User, SavedPlan, Itinerary, DayPlan } from "shared/types";
 import { AlternativeSuggestionModal } from "@/components/chat/AlternativeSuggestionModal";
-import { AnimatePresence, motion } from "framer-motion";
+import LoadingBackdrop from "@/components/common/LoadingBackdrop";
 
 interface ChatPageProps {
   user: User | null;
@@ -23,9 +23,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [currentPlan, setCurrentPlan] = useState<SavedPlan | Itinerary | null>(
-    null
-  );
+  const [currentPlan, setCurrentPlan] = useState<SavedPlan | Itinerary | null>(null);
   const [isPageLoading, setIsPageLoading] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -90,19 +88,14 @@ export const ChatPage: React.FC<ChatPageProps> = ({
         currentPlan.preferences
       );
 
-      const newPlanState = JSON.parse(
-        JSON.stringify(currentPlan)
-      ) as Itinerary;
+      const newPlanState = JSON.parse(JSON.stringify(currentPlan)) as Itinerary;
 
       newPlanState.title = updatedItinerary.title || newPlanState.title;
       newPlanState.totalEstimatedCost =
         updatedItinerary.totalEstimatedCost || newPlanState.totalEstimatedCost;
       newPlanState.sources = updatedItinerary.sources || newPlanState.sources;
 
-      if (
-        updatedItinerary.itinerary &&
-        Array.isArray(updatedItinerary.itinerary)
-      ) {
+      if (updatedItinerary.itinerary && Array.isArray(updatedItinerary.itinerary)) {
         newPlanState.itinerary = newPlanState.itinerary.map(
           (oldDayPlan: DayPlan, index: number) => {
             const newDayPlan = updatedItinerary.itinerary[index];
@@ -115,8 +108,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({
       setIsPlanSaved(false);
       setUserMessages([]);
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "An error occurred.";
+      const errorMessage = err instanceof Error ? err.message : "An error occurred.";
       setError(`Failed to update itinerary: ${errorMessage}`);
       setUserMessages((prev) => prev.slice(0, -1));
     } finally {
@@ -124,10 +116,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({
     }
   };
 
-  const handleOpenSuggestionModal = (
-    dayIndex: number,
-    activityIndex: number
-  ) => {
+  const handleOpenSuggestionModal = (dayIndex: number, activityIndex: number) => {
     if (!currentPlan) return;
     const activity = currentPlan.itinerary[dayIndex].activities[activityIndex];
     const day = currentPlan.itinerary[dayIndex].day;
@@ -172,10 +161,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({
       setCurrentPlan(savedPlanResponse);
       setIsPlanSaved(true);
     } catch (err) {
-      showToast(
-        err instanceof Error ? err.message : "Failed to save plan.",
-        "error"
-      );
+      showToast(err instanceof Error ? err.message : "Failed to save plan.", "error");
     } finally {
       setIsSaving(false);
     }
@@ -186,52 +172,32 @@ export const ChatPage: React.FC<ChatPageProps> = ({
     return [{ role: "model", content: currentPlan }, ...userMessages];
   }, [currentPlan, userMessages]);
 
+  if (isPageLoading) {
+    return <LoadingBackdrop />;
+  }
+
+  if (!currentPlan) {
+    return (
+      <div className="text-center text-red-400">
+        Could not load plan. Please try again.
+      </div>
+    );
+  }
+
   return (
     <>
-      <AnimatePresence mode="wait">
-        {isPageLoading ? (
-          <motion.div
-            key="loader"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-          </motion.div>
-        ) : !currentPlan ? (
-           <motion.div
-            key="error"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="text-center text-red-400"
-          >
-            Could not load plan. Please try again.
-          </motion.div>
-        ) : (
-          <motion.div
-            key="content"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <ChatView
-              messages={chatMessages}
-              onSendMessage={handleSendMessage}
-              onReset={() => navigate("/newplan")}
-              onSavePlan={handleSavePlan}
-              isLoading={isLoading}
-              isSaving={isSaving}
-              isPlanSaved={isPlanSaved}
-              user={user}
-              error={error}
-              onSuggestAlternative={handleOpenSuggestionModal}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
+      <ChatView
+        messages={chatMessages}
+        onSendMessage={handleSendMessage}
+        onReset={() => navigate("/newplan")}
+        onSavePlan={handleSavePlan}
+        isLoading={isLoading}
+        isSaving={isSaving}
+        isPlanSaved={isPlanSaved}
+        user={user}
+        error={error}
+        onSuggestAlternative={handleOpenSuggestionModal}
+      />
       {activityToReplace && (
         <AlternativeSuggestionModal
           isOpen={isSuggestionModalOpen}
