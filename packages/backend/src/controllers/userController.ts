@@ -28,14 +28,7 @@ export const googleLogin = async (
       await user.save();
     }
     
-    const userPayload = {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-    };
-    return res.json(userPayload);
+    return res.json({ name: user.name, email: user.email });
 
   } catch (err) {
     return next(err);
@@ -75,6 +68,7 @@ export const register = async (
     const passwordHash = await bcrypt.hash(password, 10);
     const user = new User({ name, email: normalizedEmail, passwordHash });
     await user.save();
+    
     return res.status(201).json({ name: user.name, email: user.email });
   } catch (err) {
     return next(err);
@@ -98,6 +92,7 @@ export const login = async (
       return res.status(400).json({ error: "Please provide a valid email" });
     }
     const normalizedEmail = String(email).toLowerCase().trim();
+    
     const user = await User
       .findOne({ email: normalizedEmail })
       .select("+passwordHash");
@@ -116,6 +111,7 @@ export const login = async (
     if (!isValid) {
       return res.status(400).json({ error: "Invalid email or password" });
     }
+
     return res.json({ name: user.name, email: user.email });
   } catch (err) {
     return next(err);
