@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import { SavedPlan } from "../../shared/types.js";
+import { SavedPlan } from "../shared/types.js";
 
 const ActivitySchema = new Schema({
   time: { type: String, required: true },
