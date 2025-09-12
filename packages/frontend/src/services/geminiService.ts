@@ -200,7 +200,7 @@ ${JSON.stringify(responseSchema, null, 2)}
 export const startItineraryChat = async (preferences: Preferences): Promise<{ chat: Chat, initialItinerary: Itinerary }> => {
     try {
         const chat = ai.chats.create({
-            model: "gemini-2.5-flash-lite",
+            model: "gemini-2.5-flash",
             config: {
                 systemInstruction: getSystemInstruction(preferences),
                 temperature: 0.2,
@@ -252,7 +252,7 @@ export const initializeChatFromPlan = (plan: Itinerary | SavedPlan, history?: Co
     ];
 
     return ai.chats.create({
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-2.5-flash",
         history: chatHistory,
         config: {
             systemInstruction: getSystemInstruction(plan.preferences),

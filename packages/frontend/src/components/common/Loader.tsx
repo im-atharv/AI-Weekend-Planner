@@ -3,11 +3,16 @@ import { SparklesIcon } from "@/assets/icons";
 
 const messages = [
   "Consulting with local experts...",
+  "Analyzing your vibe and interests...",
   "Finding the most exclusive events...",
+  "Scouting for hidden gems...",
   "Aligning the stars for your perfect weekend...",
+  "Checking real-time availability...",
   "Crafting your personalized experience...",
-  "Sourcing hidden gems and local favorites...",
+  "Mapping the most efficient routes...",
+  "Sourcing local favorites...",
   "Architecting your escape...",
+  "Finalizing the details...",
 ];
 
 interface LoaderProps {
