@@ -5,7 +5,7 @@ import { continueItineraryChat, initializeChatFromPlan } from "@/services/gemini
 import { getPlanById, savePlan, updatePlan } from "@/api";
 import type { Chat } from "@google/genai";
 import type { ChatMessage, User, SavedPlan, Itinerary, DayPlan } from "shared/types";
-import LoadingBackdrop from "@/components/common/LoadingBackdrop";
+import { SparklesIcon } from "@/assets/icons"; 
 import { AlternativeSuggestionModal } from "@/components/chat/AlternativeSuggestionModal";
 
 interface ChatPageProps {
@@ -189,8 +189,20 @@ export const ChatPage: React.FC<ChatPageProps> = ({
   }, [currentPlan, userMessages]);
 
   if (isPageLoading) {
-    return <LoadingBackdrop />;
-  }
+  return (
+    <div className="flex justify-center items-center min-h-[50vh]">
+      <div className="text-center p-8 flex flex-col items-center justify-center animate-fade-in w-full max-w-2xl">
+        <SparklesIcon className="w-12 h-12 text-sky-500 animate-pulse mb-6" />
+        <h3 className="text-2xl font-bold text-white mb-2">
+          Loading Your Itinerary
+        </h3>
+        <p className="text-slate-400">
+          Just a moment while we retrieve the details...
+        </p>
+      </div>
+    </div>
+  );
+}
 
   if (!currentPlan) {
     return (
