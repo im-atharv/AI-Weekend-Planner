@@ -13,8 +13,9 @@ import {
 interface ActivityCardProps {
   activity: Activity;
   onSuggestAlternative: () => void;
-  dayIndex: number;    
-  activityIndex: number; 
+  dayIndex: number;
+  activityIndex: number;
+  isReplacing: boolean;
 }
 
 const categoryStyles: { [key: string]: { icon: React.ReactElement, classes: string } } = {
@@ -36,7 +37,7 @@ const categoryStyles: { [key: string]: { icon: React.ReactElement, classes: stri
 };
 
 export const ActivityCard: React.FC<ActivityCardProps> = React.memo(
-  ({ activity, onSuggestAlternative, dayIndex, activityIndex }) => {
+  ({ activity, onSuggestAlternative, dayIndex, activityIndex, isReplacing }) => {
     const style =
       categoryStyles[activity.category] ||
       ({
@@ -81,25 +82,28 @@ export const ActivityCard: React.FC<ActivityCardProps> = React.memo(
 
             <div className="relative flex-shrink-0">
               <div
-                className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full whitespace-nowrap ${style.classes} transition-opacity duration-200 group-hover:opacity-10`}
+                className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full whitespace-nowrap ${style.classes} transition-opacity duration-200 ${!isReplacing && "group-hover:opacity-10"}`}
               >
                 {style.icon}
                 <span>{activity.category}</span>
               </div>
-              <button
-                onClick={onSuggestAlternative}
-                className="absolute inset-0 flex items-center justify-center text-slate-400 rounded-full hover:text-sky-400 transition-colors duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                aria-label="Suggest an alternative for this activity"
-              >
-                <RefreshIcon className="w-5 h-5" />
-              </button>
-              
-              <div
-                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/80 backdrop-blur-sm text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap"
-                role="tooltip"
-              >
-                Suggest an alternative
-              </div>
+              {!isReplacing && (
+                <>
+                  <button
+                    onClick={onSuggestAlternative}
+                    className="absolute inset-0 flex items-center justify-center text-slate-400 rounded-full hover:text-sky-400 transition-colors duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    aria-label="Suggest an alternative for this activity"
+                  >
+                    <RefreshIcon className="w-5 h-5" />
+                  </button>
+                  <div
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900/80 backdrop-blur-sm text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap"
+                    role="tooltip"
+                  >
+                    Suggest an alternative
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -118,6 +122,14 @@ export const ActivityCard: React.FC<ActivityCardProps> = React.memo(
             )}
           </div>
         </div>
+        {isReplacing && (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-800/80 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-sky-400">
+                    <SparklesIcon className="w-6 h-6 animate-pulse" />
+                    <span className="font-semibold">Finding an alternative...</span>
+                </div>
+            </div>
+        )}
       </div>
     );
   }

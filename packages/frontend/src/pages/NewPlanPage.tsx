@@ -87,25 +87,21 @@ export const NewPlanPage: React.FC<NewPlanPageProps> = ({ user, onLoginRequest }
     return <Loader progress={loadingProgress} />;
   }
 
-  if (error) {
-    return (
-      <div className="text-center p-8 bg-slate-800 rounded-lg shadow-md border border-slate-700 w-full max-w-2xl">
-        <p className="text-red-400 text-lg">{error}</p>
-        <button
-          onClick={() => {
-            setError(null);
-            setIsLoading(false);
-          }}
-          className="mt-6 bg-sky-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-sky-700"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
   return (
     <>
+      {error && (
+        <div className="text-center p-8 mb-8 bg-slate-800 rounded-lg shadow-md border border-slate-700 w-full max-w-2xl">
+          <p className="text-red-400 text-lg">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+            }}
+            className="mt-6 bg-sky-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-sky-700"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
       <div className="w-full max-w-3xl text-center">
         <h2 className="text-3xl md:text-5xl font-bold text-white mb-3">
           Your Personal AI Weekend Architect

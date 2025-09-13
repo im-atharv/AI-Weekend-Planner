@@ -16,6 +16,7 @@ import {
   RupeeIcon,
   CheckCircleIcon,
 } from "@/assets/icons";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatViewProps {
   messages: ChatMessage[];
@@ -28,6 +29,7 @@ interface ChatViewProps {
   user: User | null;
   error: string | null;
   onSuggestAlternative: (dayIndex: number, activityIndex: number) => void;
+  isReplacing: { dayIndex: number, activityIndex: number } | null;
 }
 
 const TravelInfoComponent: React.FC<{ info: Activity["travelInfo"] }> = ({ info }) => {
@@ -77,7 +79,8 @@ const SourceInfo: React.FC<{ sources?: GroundingMetadataSource[] }> = ({ sources
 const ItineraryMessage: React.FC<{
   itinerary: Itinerary;
   onSuggestAlternative: (dayIndex: number, activityIndex: number) => void;
-}> = ({ itinerary, onSuggestAlternative }) => {
+  isReplacing: { dayIndex: number, activityIndex: number } | null;
+}> = ({ itinerary, onSuggestAlternative, isReplacing }) => {
   return (
     <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
       <div className="text-center mb-12">
@@ -100,19 +103,29 @@ const ItineraryMessage: React.FC<{
               <p className="text-sky-400 font-semibold">{dayPlan.theme}</p>
             </div>
             <div className="pl-8">
-              {dayPlan.activities.map((activity, activityIndex) => (
-                <React.Fragment key={activityIndex}>
-                  <TravelInfoComponent info={activity.travelInfo} />
-                  <ActivityCard
-                    activity={activity}
-                    onSuggestAlternative={() =>
-                      onSuggestAlternative(dayIndex, activityIndex)
-                    }
-                    dayIndex={dayIndex}
-                    activityIndex={activityIndex}
-                  />
-                </React.Fragment>
-              ))}
+              <AnimatePresence>
+                {dayPlan.activities.map((activity, activityIndex) => (
+                  <motion.div
+                    key={`${dayIndex}-${activityIndex}-${activity.title}`}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.5, type: "spring" }}
+                  >
+                    <TravelInfoComponent info={activity.travelInfo} />
+                    <ActivityCard
+                      activity={activity}
+                      onSuggestAlternative={() =>
+                        onSuggestAlternative(dayIndex, activityIndex)
+                      }
+                      dayIndex={dayIndex}
+                      activityIndex={activityIndex}
+                      isReplacing={isReplacing?.dayIndex === dayIndex && isReplacing?.activityIndex === activityIndex}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </React.Fragment>
         ))}
@@ -180,6 +193,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   user,
   error,
   onSuggestAlternative,
+  isReplacing
 }) => {
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
@@ -233,6 +247,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 key={index}
                 itinerary={msg.content}
                 onSuggestAlternative={onSuggestAlternative}
+                isReplacing={isReplacing}
               />
             );
           }

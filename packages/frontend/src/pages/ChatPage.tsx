@@ -5,7 +5,7 @@ import { continueItineraryChat, initializeChatFromPlan } from "@/services/gemini
 import { getPlanById, savePlan, updatePlan } from "@/api";
 import type { Chat } from "@google/genai";
 import type { ChatMessage, User, SavedPlan, Itinerary, DayPlan } from "shared/types";
-import { SparklesIcon } from "@/assets/icons"; 
+import { SparklesIcon } from "@/assets/icons";
 import { AlternativeSuggestionModal } from "@/components/chat/AlternativeSuggestionModal";
 
 interface ChatPageProps {
@@ -38,6 +38,8 @@ export const ChatPage: React.FC<ChatPageProps> = ({
     day: string;
   } | null>(null);
   const [scrollToActivity, setScrollToActivity] = useState<{ day: number; activity: number } | null>(null);
+  const [isReplacing, setIsReplacing] = useState<{ dayIndex: number; activityIndex: number } | null>(null);
+  const [isAlternativeUpdate, setIsAlternativeUpdate] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -75,6 +77,13 @@ export const ChatPage: React.FC<ChatPageProps> = ({
   }, [planId, location.state, navigate, showToast]);
 
   useEffect(() => {
+    if (currentPlan && !isAlternativeUpdate) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    setIsAlternativeUpdate(false);
+  }, [currentPlan]);
+
+  useEffect(() => {
     if (scrollToActivity && currentPlan) {
       const elementId = `activity-${scrollToActivity.day}-${scrollToActivity.activity}`;
       const element = document.getElementById(elementId);
@@ -86,10 +95,15 @@ export const ChatPage: React.FC<ChatPageProps> = ({
   }, [currentPlan, scrollToActivity]);
 
 
-  const handleSendMessage = async (message: string) => {
+  const handleSendMessage = async (message: string, isAlternative: boolean = false) => {
     if (!chatRef.current || !currentPlan) return;
 
-    setUserMessages((prev) => [...prev, { role: "user", content: message }]);
+    if (isAlternative) {
+      setIsAlternativeUpdate(true);
+    } else {
+      setUserMessages((prev) => [...prev, { role: "user", content: message }]);
+    }
+    
     setIsLoading(true);
     setError(null);
 
@@ -118,7 +132,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({
 
       setCurrentPlan(newPlanState);
       setIsPlanSaved(false);
-      setUserMessages([]);
+      if(!isAlternative) {
+        setUserMessages([]);
+      }
       if (activityToReplace) {
         showToast("Activity has been replaced with your preference!", "success");
       }
@@ -126,9 +142,15 @@ export const ChatPage: React.FC<ChatPageProps> = ({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred.";
       setError(`Failed to update itinerary: ${errorMessage}`);
-      setUserMessages((prev) => prev.slice(0, -1));
+      if (!isAlternative) {
+        setUserMessages((prev) => prev.slice(0, -1));
+      } else {
+        setIsAlternativeUpdate(false);
+      }
     } finally {
       setIsLoading(false);
+      setIsReplacing(null);
+      setActivityToReplace(null);
     }
   };
 
@@ -151,8 +173,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({
 
     const { activityTitle, day } = activityToReplace;
     const prompt = `Please replace the activity "${activityTitle}" on ${day} with an alternative that is more like "${preference}". Keep all other activities the same, but update the travel info and total cost as needed.`;
-
-    handleSendMessage(prompt);
+    
+    setIsReplacing({ dayIndex: activityToReplace.dayIndex, activityIndex: activityToReplace.activityIndex });
+    handleSendMessage(prompt, true);
     setIsSuggestionModalOpen(false);
   };
 
@@ -225,6 +248,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({
         user={user}
         error={error}
         onSuggestAlternative={handleOpenSuggestionModal}
+        isReplacing={isReplacing}
       />
       {activityToReplace && (
         <AlternativeSuggestionModal
