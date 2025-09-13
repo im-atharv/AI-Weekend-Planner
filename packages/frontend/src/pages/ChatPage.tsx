@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { ChatView } from "@/components/chat/ChatView";
-import { continueItineraryChat, initializeChatFromPlan } from "@/services/geminiService";
+import { continueItineraryChat, getAlternativeActivity, initializeChatFromPlan } from "@/services/geminiService";
 import { getPlanById, savePlan, updatePlan } from "@/api";
 import type { Chat } from "@google/genai";
 import type { ChatMessage, User, SavedPlan, Itinerary, DayPlan } from "shared/types";
@@ -80,8 +80,10 @@ export const ChatPage: React.FC<ChatPageProps> = ({
     if (currentPlan && !isAlternativeUpdate) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    setIsAlternativeUpdate(false);
-  }, [currentPlan]);
+    if(isAlternativeUpdate) {
+        setIsAlternativeUpdate(false);
+    }
+  }, [currentPlan, isAlternativeUpdate]);
 
   useEffect(() => {
     if (scrollToActivity && currentPlan) {
@@ -95,15 +97,10 @@ export const ChatPage: React.FC<ChatPageProps> = ({
   }, [currentPlan, scrollToActivity]);
 
 
-  const handleSendMessage = async (message: string, isAlternative: boolean = false) => {
+  const handleSendMessage = async (message: string) => {
     if (!chatRef.current || !currentPlan) return;
 
-    if (isAlternative) {
-      setIsAlternativeUpdate(true);
-    } else {
-      setUserMessages((prev) => [...prev, { role: "user", content: message }]);
-    }
-    
+    setUserMessages((prev) => [...prev, { role: "user", content: message }]);
     setIsLoading(true);
     setError(null);
 
@@ -114,46 +111,19 @@ export const ChatPage: React.FC<ChatPageProps> = ({
         currentPlan.preferences
       );
 
-      const newPlanState = JSON.parse(JSON.stringify(currentPlan)) as Itinerary;
-
-      newPlanState.title = updatedItinerary.title || newPlanState.title;
-      newPlanState.totalEstimatedCost =
-        updatedItinerary.totalEstimatedCost || newPlanState.totalEstimatedCost;
-      newPlanState.sources = updatedItinerary.sources || newPlanState.sources;
-
-      if (updatedItinerary.itinerary && Array.isArray(updatedItinerary.itinerary)) {
-        newPlanState.itinerary = newPlanState.itinerary.map(
-          (oldDayPlan: DayPlan, index: number) => {
-            const newDayPlan = updatedItinerary.itinerary[index];
-            return newDayPlan ? { ...oldDayPlan, ...newDayPlan } : oldDayPlan;
-          }
-        );
-      }
-
-      setCurrentPlan(newPlanState);
+      setCurrentPlan(updatedItinerary);
       setIsPlanSaved(false);
-      if(!isAlternative) {
-        setUserMessages([]);
-      }
-      if (activityToReplace) {
-        showToast("Activity has been replaced with your preference!", "success");
-      }
+      setUserMessages([]);
 
     } catch (err) {
-      let errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      let errorMessage = err instanceof Error ? err.message : "An error occurred.";
       if (errorMessage.includes("503") || errorMessage.toLowerCase().includes("overloaded")) {
         errorMessage = "Our AI architect is currently busy. Please try your request again in a moment.";
       }
       setError(errorMessage);
-      if (!isAlternative) {
-        setUserMessages((prev) => prev.slice(0, -1));
-      } else {
-        setIsAlternativeUpdate(false);
-      }
+      setUserMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
-      setIsReplacing(null);
-      setActivityToReplace(null);
     }
   };
 
@@ -170,16 +140,49 @@ export const ChatPage: React.FC<ChatPageProps> = ({
     setIsSuggestionModalOpen(true);
   };
 
-  const handleSuggestAlternative = (preference: string) => {
-    if (!activityToReplace) return;
-    setScrollToActivity({ day: activityToReplace.dayIndex, activity: activityToReplace.activityIndex });
+  const handleSuggestAlternative = async (preference: string) => {
+    if (!activityToReplace || !currentPlan) return;
 
-    const { activityTitle, day } = activityToReplace;
-    const prompt = `Please replace the activity "${activityTitle}" on ${day} with an alternative that is more like "${preference}". Keep all other activities the same, but update the travel info and total cost as needed.`;
-    
+    setScrollToActivity({ day: activityToReplace.dayIndex, activity: activityToReplace.activityIndex });
     setIsReplacing({ dayIndex: activityToReplace.dayIndex, activityIndex: activityToReplace.activityIndex });
-    handleSendMessage(prompt, true);
     setIsSuggestionModalOpen(false);
+
+    try {
+      setIsAlternativeUpdate(true);
+      const dayPlan = currentPlan.itinerary[activityToReplace.dayIndex];
+      const result = await getAlternativeActivity(
+        currentPlan.preferences,
+        dayPlan,
+        activityToReplace.activityIndex,
+        preference,
+        currentPlan.totalEstimatedCost || "N/A"
+      );
+      
+      setCurrentPlan(prevPlan => {
+          if(!prevPlan) return null;
+          const newPlan = JSON.parse(JSON.stringify(prevPlan));
+
+          newPlan.totalEstimatedCost = result.updatedTotalCost;
+          newPlan.itinerary[activityToReplace.dayIndex].activities[activityToReplace.activityIndex] = result.replacementActivity;
+        
+          const nextActivityIndex = activityToReplace.activityIndex + 1;
+          if (result.nextActivityTravelInfo && newPlan.itinerary[activityToReplace.dayIndex].activities[nextActivityIndex]) {
+            newPlan.itinerary[activityToReplace.dayIndex].activities[nextActivityIndex].travelInfo = result.nextActivityTravelInfo;
+          }
+          return newPlan
+      });
+
+
+      setIsPlanSaved(false);
+      showToast("Activity has been replaced!", "success");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Could not find a replacement.";
+      showToast(errorMessage, "error");
+      setIsAlternativeUpdate(false); 
+    } finally {
+      setIsReplacing(null);
+      setActivityToReplace(null);
+    }
   };
 
   const handleSavePlan = async () => {

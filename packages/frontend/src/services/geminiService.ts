@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Chat, Content } from "@google/genai";
-import type { Preferences, Itinerary, GroundingMetadataSource, SavedPlan } from 'shared/types';
+import type { Preferences, Itinerary, GroundingMetadataSource, SavedPlan, DayPlan, Activity } from 'shared/types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -280,6 +280,141 @@ export const initializeChatFromPlan = (plan: Itinerary | SavedPlan, history?: Co
         },
     });
 };
+
+const activityItemSchema = responseSchema.properties.itinerary.items.properties.activities.items;
+const activityReplacementSchema = {
+  type: Type.OBJECT,
+  properties: {
+    replacementActivity: activityItemSchema,
+    updatedTotalCost: {
+      type: Type.STRING,
+      description: "The new total estimated cost for the entire weekend after this replacement."
+    },
+    nextActivityTravelInfo: {
+      type: Type.OBJECT,
+      description: "Updated travel info for the activity immediately following the replacement (nullable).",
+      properties: {
+        mode: { type: Type.STRING },
+        duration: { type: Type.STRING },
+        distance: { type: Type.STRING },
+        from: { type: Type.STRING, nullable: true }
+      },
+      nullable: true
+    },
+  },
+  required: ['replacementActivity', 'updatedTotalCost']
+};
+
+export const getAlternativeActivity = async (
+  preferences: Preferences,
+  dayPlan: DayPlan,
+  activityToReplaceIndex: number,
+  userInput: string,
+  currentTotalCost: string
+): Promise<{ replacementActivity: Activity; updatedTotalCost: string; nextActivityTravelInfo: Activity['travelInfo'] | null }> => {
+  if (!dayPlan || !Array.isArray(dayPlan.activities)) {
+    throw new Error('Invalid dayPlan provided to getAlternativeActivity.');
+  }
+  const activityToReplace = dayPlan.activities[activityToReplaceIndex];
+  if (!activityToReplace) {
+    throw new Error(`No activity found at index ${activityToReplaceIndex}.`);
+  }
+
+  const previousActivity = dayPlan.activities[activityToReplaceIndex - 1] ?? null;
+  const nextActivity = dayPlan.activities[activityToReplaceIndex + 1] ?? null;
+
+  const prompt = `
+A user wants to replace an activity in their itinerary.
+User Preferences: ${JSON.stringify(preferences)}
+Current Itinerary Day: ${JSON.stringify(dayPlan)}
+Activity to Replace: "${activityToReplace.title}" at time ${activityToReplace.time}.
+User's Request: "Find me an alternative that is more like '${userInput}'." 
+The previous activity is: "${previousActivity?.title || 'None'}".
+The next activity is: "${nextActivity?.title || 'None'}".
+Current Total Weekend Cost: ${currentTotalCost}.
+
+Your task (IMPORTANT):
+1) Return ONE replacement activity that matches the same activity schema used in the main plan (time, title, description, location.address required, category from the allowed enum, estimatedCost, isSpecialEvent, travelInfo with mode & duration).
+2) Provide travelInfo for the replacement activity (mode & duration required; include distance/from if possible) calculated from the previous activity's location (or user's start if previous is null).
+3) Provide updated travelInfo for the NEXT activity (if exists) recalculated from the replacement (return null if there's no next activity).
+4) Recalculate the updated totalEstimatedCost for the weekend (string like 'Approx. ₹4,500').
+5) Output EXACTLY one JSON object that follows the schema provided. NO prose outside JSON. Respond ONLY with the JSON object.
+  `;
+
+  try {
+    const chat = ai.chats.create({
+      model: "gemini-2.5-flash",
+      config: {
+        systemInstruction: getSystemInstruction(preferences),
+        temperature: 0.2,
+        maxOutputTokens: 16384,
+        responseSchema: activityReplacementSchema,
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    const response = await retryWithBackoff(() => chat.sendMessage({ message: prompt }));
+
+    const rawText =
+      (response as any).text
+      || (response as any)?.candidates?.[0]?.content?.parts?.[0]?.text
+      || (response as any)?.candidates?.[0]?.message?.content?.[0]?.text
+      || '';
+
+    if (!rawText || rawText.trim().length === 0) {
+      console.error("Gemini returned empty text for replacement request.", { response });
+      throw new Error("No text received from AI when requesting an activity replacement.");
+    }
+
+    const parsed = cleanJsonText(rawText);
+    const cleaned = removeCitations(parsed);
+    const replacement = cleaned?.replacementActivity ?? cleaned?.replacement ?? null;
+    const updatedTotalCost = cleaned?.updatedTotalCost ?? cleaned?.totalEstimatedCost ?? cleaned?.totalEstimatedCostString ?? null;
+    const nextTravel = cleaned?.nextActivityTravelInfo ?? cleaned?.updatedNextActivityTravelInfo ?? cleaned?.nextActivityTravel ?? null;
+
+    if (!replacement || !updatedTotalCost) {
+      console.error("Parsed replacement object missing required fields:", { cleaned });
+      throw new Error("AI returned malformed replacement object. Please try again with a different request.");
+    }
+
+    if (
+      !replacement.time ||
+      !replacement.title ||
+      !replacement.description ||
+      !replacement.location ||
+      !replacement.location.address ||
+      !replacement.category ||
+      !replacement.estimatedCost ||
+      replacement.isSpecialEvent === undefined ||
+      !replacement.travelInfo ||
+      !replacement.travelInfo.mode ||
+      !replacement.travelInfo.duration
+    ) {
+      console.error("Replacement activity missing required activity fields:", replacement);
+      throw new Error("Replacement activity is missing required fields that must match the main plan schema.");
+    }
+
+    const normalizedNextTravel = nextTravel
+      ? {
+          mode: nextTravel.mode,
+          duration: nextTravel.duration,
+          distance: nextTravel.distance ?? null,
+          from: nextTravel.from ?? null
+        }
+      : null;
+
+    return {
+      replacementActivity: replacement as Activity,
+      updatedTotalCost: String(updatedTotalCost),
+      nextActivityTravelInfo: normalizedNextTravel as Activity['travelInfo'] | null,
+    };
+  } catch (error) {
+    console.error("Error in getAlternativeActivity:", error);
+    throw error;
+  }
+};
+
+
 
 /**
  * Continues an existing chat session with a new user message.
