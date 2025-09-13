@@ -3,6 +3,23 @@ import type { Preferences, Itinerary, GroundingMetadataSource, SavedPlan } from 
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+const retryWithBackoff = async <T>(
+  apiCall: () => Promise<T>,
+  retries: number = 3,
+  delay: number = 2000
+): Promise<T> => {
+  try {
+    return await apiCall();
+  } catch (error) {
+    if (retries > 0 && error instanceof Error && (error.message.includes('503') || error.message.toLowerCase().includes('overloaded'))) {
+      console.warn(`Model overloaded. Retrying in ${delay / 1000}s... (${retries} retries left)`);
+      await new Promise(res => setTimeout(res, delay));
+      return retryWithBackoff(apiCall, retries - 1, delay * 2);
+    }
+    throw error;
+  }
+};
+
 const responseSchema: any = {
     type: Type.OBJECT,
     properties: {
@@ -210,9 +227,9 @@ export const startItineraryChat = async (preferences: Preferences): Promise<{ ch
             },
         });
 
-        const response = await chat.sendMessage({
+        const response = await retryWithBackoff(() => chat.sendMessage({
             message: "Please generate the initial itinerary based on my preferences.",
-        });
+        }));
 
         const text = response.text;
         if (!text) {
@@ -269,9 +286,9 @@ export const initializeChatFromPlan = (plan: Itinerary | SavedPlan, history?: Co
  */
 export const continueItineraryChat = async (chat: Chat, message: string, preferences: Preferences): Promise<{ updatedItinerary: Itinerary }> => {
     try {
-        const response = await chat.sendMessage({
+        const response = await retryWithBackoff(() => chat.sendMessage({
             message: message,
-        });
+        }));
 
         const text = response.text;
         if (!text) {

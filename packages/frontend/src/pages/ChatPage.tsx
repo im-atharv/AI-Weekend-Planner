@@ -140,8 +140,11 @@ export const ChatPage: React.FC<ChatPageProps> = ({
       }
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An error occurred.";
-      setError(`Failed to update itinerary: ${errorMessage}`);
+      let errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      if (errorMessage.includes("503") || errorMessage.toLowerCase().includes("overloaded")) {
+        errorMessage = "Our AI architect is currently busy. Please try your request again in a moment.";
+      }
+      setError(errorMessage);
       if (!isAlternative) {
         setUserMessages((prev) => prev.slice(0, -1));
       } else {

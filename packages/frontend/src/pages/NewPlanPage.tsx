@@ -77,7 +77,10 @@ export const NewPlanPage: React.FC<NewPlanPageProps> = ({ user, onLoginRequest }
       if (errorMessage.includes("429") || errorMessage.toLowerCase().includes("quota")) {
           errorMessage = "You've sent too many requests. Please wait a minute and then click 'Try Again'.";
       }
-      setError(`Failed to generate itinerary. ${errorMessage}`);
+      if (errorMessage.includes("503") || errorMessage.toLowerCase().includes("overloaded")) {
+          errorMessage = "Our AI architect is experiencing high demand. We tried a few times for you, but it's still busy. Please try again in a few moments.";
+      }
+      setError(errorMessage);
       setIsLoading(false);
       setLoadingProgress(0);
     }
